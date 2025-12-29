@@ -160,7 +160,7 @@ struct NearbyExploreView: View {
     
     // Google Places API 기반 주변 장소 검색 (안정적)
     // MapKit Rate Limiting 문제로 인해 Google Places API 사용
-    private var lastFetchTime: Date = .distantPast
+    @State private var lastFetchTime: Date = .distantPast
     private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
     
     private func fetchPlaces() {
