@@ -158,149 +158,58 @@ struct NearbyExploreView: View {
         .accessibilityHint("위아래로 스와이프하여 조절하면 자동으로 장소를 다시 검색합니다.")
     }
     
-    // MapKit 기반 주변 장소 검색 (카카오맵 데이터 활용)
+    // Google Places API 기반 주변 장소 검색 (안정적)
+    // MapKit Rate Limiting 문제로 인해 Google Places API 사용
+    private var lastFetchTime: Date = .distantPast
+    private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
+    
     private func fetchPlaces() {
         guard let location = locationManager.currentLocation else {
             locationManager.requestLocation()
             return
         }
         
+        // 디바운싱: 3초 이내 중복 호출 방지
+        let now = Date()
+        guard now.timeIntervalSince(lastFetchTime) >= minimumFetchInterval else {
+            print("⏱️ Debounced: 너무 빠른 재검색 방지")
+            return
+        }
+        lastFetchTime = now
+        
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
         
-        // MKLocalSearch를 사용한 주변 검색 (안정적, 무료, 빠름)
-        let request = MKLocalSearch.Request()
-        // 빈 쿼리로 주변의 모든 POI를 검색
-        request.naturalLanguageQuery = "" // 또는 "주변" 등
-        request.region = MKCoordinateRegion(
-            center: location.coordinate,
-            latitudinalMeters: searchRadius * 2,
-            longitudinalMeters: searchRadius * 2
-        )
-        request.resultTypes = .pointOfInterest // POI만 검색
-        
-        let search = MKLocalSearch(request: request)
-        search.start { response, error in
+        // Google Places API (안정적, 풍부한 POI 데이터)
+        APIService.shared.fetchNearbyPlaces(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            radius: searchRadius
+        ) { fetchedPlaces, errorMsg in
             DispatchQueue.main.async {
                 self.isLoading = false
                 
-                if let error = error {
-                    print("MapKit Search Error: \(error.localizedDescription)")
+                if let fetchedPlaces = fetchedPlaces {
+                    self.places = fetchedPlaces
                     
-                    // 폴백: 키워드 기반 검색
-                    self.fetchPlacesWithKeywords()
-                    return
-                }
-                
-                guard let response = response else {
-                    self.fetchPlacesWithKeywords()
-                    return
-                }
-                
-                // MKMapItem → Place 변환 (반경 필터링)
-                let fetchedPlaces = response.mapItems.compactMap { item -> Place? in
-                    let itemLocation = CLLocation(
-                        latitude: item.placemark.coordinate.latitude,
-                        longitude: item.placemark.coordinate.longitude
-                    )
-                    let distance = location.distance(from: itemLocation)
-                    
-                    // 설정한 반경 내의 장소만 포함
-                    guard distance <= self.searchRadius else { return nil }
-                    
-                    return Place(
-                        name: item.name ?? "장소",
-                        address: item.placemark.title ?? "",
-                        types: [item.pointOfInterestCategory?.rawValue ?? ""],
-                        coordinate: item.placemark.coordinate
-                    )
-                }
-                
-                print("✅ [MapKit] 주변 장소 \(fetchedPlaces.count)개 검색됨")
-                if !fetchedPlaces.isEmpty {
-                    print("📍 Places: \(fetchedPlaces.prefix(5).map { $0.name })")
-                }
-                
-                self.places = fetchedPlaces
-                
-                if !fetchedPlaces.isEmpty {
-                    // 데이터 수신 즉시 자동 시작
-                    self.startScanning()
-                    
-                    // VoiceOver 안내
-                    UIAccessibility.post(notification: .announcement, argument: "디지털 지팡이 활성화. \(fetchedPlaces.count)개 장소 감지됨")
-                } else {
-                    UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
-                }
-            }
-        }
-    }
-    
-    // 폴백: 키워드 기반 검색 (MKLocalSearch가 실패할 경우)
-    private func fetchPlacesWithKeywords() {
-        guard let location = locationManager.currentLocation else { return }
-        
-        // 여러 카테고리를 순차적으로 검색
-        let keywords = ["카페", "음식점", "편의점", "병원", "약국", "지하철역", "버스정류장", "은행"]
-        var allPlaces: [Place] = []
-        let group = DispatchGroup()
-        
-        for keyword in keywords {
-            group.enter()
-            
-            let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = keyword
-            request.region = MKCoordinateRegion(
-                center: location.coordinate,
-                latitudinalMeters: searchRadius * 2,
-                longitudinalMeters: searchRadius * 2
-            )
-            
-            let search = MKLocalSearch(request: request)
-            search.start { response, _ in
-                if let items = response?.mapItems {
-                    let places = items.compactMap { item -> Place? in
-                        let itemLocation = CLLocation(
-                            latitude: item.placemark.coordinate.latitude,
-                            longitude: item.placemark.coordinate.longitude
-                        )
-                        let distance = location.distance(from: itemLocation)
-                        guard distance <= self.searchRadius else { return nil }
+                    print("✅ [Google Places] 주변 장소 \(fetchedPlaces.count)개 검색됨")
+                    if !fetchedPlaces.isEmpty {
+                        print("📍 Places: \(fetchedPlaces.prefix(5).map { $0.name })")
                         
-                        return Place(
-                            name: item.name ?? keyword,
-                            address: item.placemark.title ?? "",
-                            types: [keyword],
-                            coordinate: item.placemark.coordinate
-                        )
+                        // 데이터 수신 즉시 자동 시작
+                        self.startScanning()
+                        
+                        // VoiceOver 안내
+                        UIAccessibility.post(notification: .announcement, argument: "디지털 지팡이 활성화. \(fetchedPlaces.count)개 장소 감지됨")
+                    } else {
+                        UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
                     }
-                    allPlaces.append(contentsOf: places)
                 }
-                group.leave()
-            }
-        }
-        
-        group.notify(queue: .main) {
-            // 중복 제거 (같은 좌표의 장소)
-            var uniquePlaces: [Place] = []
-            var coordinates: Set<String> = []
-            
-            for place in allPlaces {
-                let coordKey = "\(place.coordinate.latitude),\(place.coordinate.longitude)"
-                if !coordinates.contains(coordKey) {
-                    coordinates.insert(coordKey)
-                    uniquePlaces.append(place)
+                
+                if let errorMsg = errorMsg {
+                    print("❌ Fetch Error: \(errorMsg)")
+                    UIAccessibility.post(notification: .announcement, argument: "주변 장소를 찾을 수 없습니다")
                 }
-            }
-            
-            print("✅ [MapKit Fallback] 주변 장소 \(uniquePlaces.count)개 검색됨")
-            self.places = uniquePlaces
-            
-            if !uniquePlaces.isEmpty {
-                self.startScanning()
-                UIAccessibility.post(notification: .announcement, argument: "디지털 지팡이 활성화. \(uniquePlaces.count)개 장소 감지됨")
-            } else {
-                UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
             }
         }
     }
