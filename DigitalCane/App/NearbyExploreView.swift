@@ -187,9 +187,7 @@ struct NearbyExploreView: View {
         )
         
         let search = MKLocalSearch(request: request)
-        search.start { [weak self] response, error in
-            guard let self = self else { return }
-            
+        search.start { response, error in
             DispatchQueue.main.async {
                 self.isLoading = false
                 
