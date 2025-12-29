@@ -47,9 +47,10 @@
   - `CoreLocation`: 실시간 위치 및 헤딩(방위각) 추적
   - `CoreHaptics` / `UIImpactFeedbackGenerator`: 촉각 피드백 제공
 - **AI & Data**:
-  - **OpenAI GPT-4o**: 사용자의 자연어 발화에서 목적지 및 출발지 의도(Intent)를 정밀하게 추출 (Hallucination 방지 프롬프트 적용)
-  - **MapKit (Apple Maps)**: 한국에서 카카오맵 데이터 기반 주변 POI 검색 (무료, 빠름, 오프라인 캐싱)
-  - **Google Maps Platform (Routes API v2)**: 대중교통 경로 안내 (향후 MapKit Directions로 전환 예정)
+  - **OpenAI GPT-4o-mini**: 4배 빠른 응답 속도와 98% 비용 절감. 사용자의 자연어 발화에서 목적지 및 출발지 의도(Intent)를 즉각 추출
+  - **Google Maps Platform**:
+    - **Places API v1**: 주변 POI 검색 (안정적, 풍부한 한국어 데이터)
+    - **Routes API v2**: 대중교통 경로 안내 (버스, 지하철, KTX 지원)
 - **Accessibility**: 
   - `VoiceOver` 최적화
   - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS)
