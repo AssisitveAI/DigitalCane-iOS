@@ -68,7 +68,7 @@ class APIService {
         """
         
         let requestBody: [String: Any] = [
-            "model": "gpt-4o", // gpt-5.2 접근 권한 오류로 인해 안정적인 gpt-4o로 복구
+            "model": "gpt-4o-mini", // 4배 빠르고 98% 저렴 - Intent 분석에 최적
             "messages": [
                 ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": text]
