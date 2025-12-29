@@ -48,10 +48,13 @@
   - `CoreHaptics` / `UIImpactFeedbackGenerator`: 촉각 피드백 제공
 - **AI & Data**:
   - **OpenAI GPT-4o**: 사용자의 자연어 발화에서 목적지 및 출발지 의도(Intent)를 정밀하게 추출 (Hallucination 방지 프롬프트 적용)
-  - **Google Maps Platform (Routes API v2, Places API v1)**: 실시간 대중교통 경로 산출 및 주변 POI 데이터 제공
+  - **MapKit (Apple Maps)**: 한국에서 카카오맵 데이터 기반 주변 POI 검색 (무료, 빠름, 오프라인 캐싱)
+  - **Google Maps Platform (Routes API v2)**: 대중교통 경로 안내 (향후 MapKit Directions로 전환 예정)
 - **Accessibility**: 
   - `VoiceOver` 최적화
   - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS)
+- **Developer Tools**:
+  - **Context7 MCP**: 실시간 버전별 문서 제공으로 최신 iOS/Swift API 정보 활용
 
 ---
 
@@ -72,6 +75,15 @@
 3. **빌드 및 실행**
    - Xcode에서 `DigitalCane.xcodeproj`를 엽니다.
    - 실제 기기(iPhone)를 연결하고 빌드합니다 (나침반 및 진동 기능 테스트 필요).
+
+4. **(선택) Context7 MCP 설정** (개발자용)
+   - AI 코드 어시스턴트와 함께 작업하는 경우, 최신 iOS/Swift API 문서를 실시간으로 제공받을 수 있습니다.
+   - `.gemini/mcp.json` 파일이 이미 설정되어 있습니다.
+   - Node.js 18.0+ 필요:
+     ```bash
+     node --version  # v18.0.0 이상 확인
+     ```
+   - MCP 호환 AI 클라이언트 (Cursor, Claude Desktop, VS Code 등)에서 자동으로 활성화됩니다.
 
 ---
 

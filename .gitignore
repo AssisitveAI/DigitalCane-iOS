@@ -96,3 +96,6 @@ iOSInjectionProject/
 Config.plist
 APIKeys.plist
 Secrets.plist
+
+# MCP Server Configurations
+.gemini/
