@@ -63,12 +63,12 @@ struct NearbyExploreView: View {
                 
                 // 도움 요청 센터 (긴급 공유 및 전화)
                 HStack(spacing: 15) {
-                    // 1. 내 위치 공유 버튼
+                    // 1. 내 위치 SMS 전송 버튼
                     Button(action: shareLocation) {
                         VStack {
-                            Image(systemName: "square.and.arrow.up.fill")
+                            Image(systemName: "message.fill")
                                 .font(.title2)
-                            Text("위치 전송")
+                            Text("SMS 전송")
                                 .font(.caption)
                                 .bold()
                         }
@@ -342,9 +342,21 @@ struct NearbyExploreView: View {
         let mapLink = "https://www.google.com/maps/search/?api=1&query=\(location.coordinate.latitude),\(location.coordinate.longitude)"
         let message = "[디지털케인 긴급 위치 알림]\n내 위치: \(address)\n지도에서 보기: \(mapLink)"
         
-        let activityVC = UIActivityViewController(activityItems: [message], applicationActivities: nil)
+        // 비상 연락처가 등록되어 있다면 SMS로 직접 연결 시도
+        if !emergencyContact.isEmpty {
+            let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
+            // SMS URL Scheme 사용 (가장 빠르고 확실한 방법)
+            if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: "sms:\(phoneNumber)&body=\(encodedBody)") {
+                if UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url)
+                    return
+                }
+            }
+        }
         
-        // SwiftUI에서 UIViewController 호출 (최상위 뷰 탐색)
+        // 연락처가 없거나 SMS 연동이 불가능할 경우 기존 공유창으로 대체
+        let activityVC = UIActivityViewController(activityItems: [message], applicationActivities: nil)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootVC = windowScene.windows.first?.rootViewController {
             rootVC.present(activityVC, animated: true)
