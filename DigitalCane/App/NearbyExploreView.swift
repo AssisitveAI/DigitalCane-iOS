@@ -7,7 +7,6 @@ struct NearbyExploreView: View {
     @EnvironmentObject var locationManager: LocationManager // 전역 사용
     @StateObject private var compassManager = CompassManager()
     @EnvironmentObject var speechManager: SpeechManager
-    @EnvironmentObject var navigationManager: NavigationManager
     
     @State private var places: [Place] = []
     @State private var isLoading = false
@@ -73,40 +72,22 @@ struct NearbyExploreView: View {
                     }
                     .padding(.vertical, 20)
                 }
-                // 감지된 장소 정보 및 경로 안내 버튼
+                // 감지된 장소 정보 표시 (시각적 피드백)
                 if let place = lastAnnouncedPlace {
-                    VStack(spacing: 20) {
-                        VStack(spacing: 8) {
-                            Text(place.name)
-                                .dynamicFont(size: 28, weight: .bold)
-                                .foregroundColor(.yellow)
-                                .multilineTextAlignment(.center)
-                            
-                            Text(place.address)
-                                .dynamicFont(size: 16)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                        }
+                    VStack(spacing: 8) {
+                        Text(place.name)
+                            .dynamicFont(size: 28, weight: .bold)
+                            .foregroundColor(.yellow)
+                            .multilineTextAlignment(.center)
                         
-                        // 경로 안내 시작 버튼 (사용자 요청 반영)
-                        Button(action: {
-                            startGuidance(to: place)
-                        }) {
-                            HStack {
-                                Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                                    .font(.title2)
-                                    Text("여기로 경로안내 시작")
-                                    .dynamicFont(size: 20, weight: .bold)
-                            }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.yellow)
-                            .foregroundColor(.black)
-                            .cornerRadius(15)
-                        }
-                        .accessibilityLabel("\(place.name)으로 경로안내 시작")
+                        Text(place.address)
+                            .dynamicFont(size: 16)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
                     }
                     .padding()
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("현재 감지된 장소: \(place.name). \(place.address)")
                 }
 
                 
@@ -285,21 +266,6 @@ struct NearbyExploreView: View {
         compassManager.stop()
     }
     
-    // 장소로 길 안내 시작
-    private func startGuidance(to place: Place) {
-        guard let location = locationManager.currentLocation else { return }
-        
-        stopScanning()
-        speechManager.speak("\(place.name)으로 가는 경로를 검색합니다.")
-        
-        // NavigationManager를 통해 직접 경로 검색 시작
-        navigationManager.findRoute(to: place.name, locationManager: locationManager) { error in
-            speechManager.speak(error)
-        }
-        
-        // 탭 자동 전환을 위해 Notification 발송 (ContentView에서 수신)
-        NotificationCenter.default.post(name: NSNotification.Name("SwitchToNavigationTab"), object: nil)
-    }
     
     // 방향 감지 로직
     private func detectPlaceInDirection(heading: Double, currentLocation: CLLocation) {
