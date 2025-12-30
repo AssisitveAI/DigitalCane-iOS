@@ -133,15 +133,27 @@ class NavigationManager: ObservableObject {
                     let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
                     
                     // 3. 경로 검색
-                    APIService.shared.fetchRoute(from: origin, to: validatedDestination, currentLocation: locationManager.currentLocation) { [weak self] routeData in
+                    let preferredModes = intent.preferredTransportModes
+                    
+                    APIService.shared.fetchRoute(from: origin, 
+                                                 to: validatedDestination, 
+                                                 currentLocation: locationManager.currentLocation,
+                                                 preferredModes: preferredModes) { [weak self] routeData, isFallbackApplied in
                         guard let self = self else { return }
                         
                         DispatchQueue.main.async {
                             self.isLoading = false
                             if let routeData = routeData {
-                                self.startNavigation(with: routeData, origin: origin, destination: displayName)
+                                self.startNavigation(with: routeData, 
+                                                     origin: origin, 
+                                                     destination: displayName, 
+                                                     isFallback: isFallbackApplied)
                             } else {
-                                onFailure("해당 목적지로 가는 경로를 찾을 수 없습니다.")
+                                let modeNames = (preferredModes ?? []).joined(separator: ", ")
+                                let failMsg = preferredModes != nil 
+                                    ? "요청하신 \(modeNames) 경로를 찾을 수 없습니다." 
+                                    : "해당 목적지로 가는 경로를 찾을 수 없습니다."
+                                onFailure(failMsg)
                             }
                         }
                     }
@@ -150,8 +162,25 @@ class NavigationManager: ObservableObject {
         }
     }
     
-    private func startNavigation(with routeData: RouteData, origin: String, destination: String) {
-        self.steps = routeData.steps
+    private func startNavigation(with routeData: RouteData, origin: String, destination: String, isFallback: Bool = false) {
+        var finalSteps = routeData.steps
+        
+        // Fallback 발생 시 첫 번째 단계 안내에 멘트 추가
+        if isFallback, !finalSteps.isEmpty {
+            let originalInstr = finalSteps[0].instruction
+            finalSteps[0] = RouteStep(
+                type: finalSteps[0].type,
+                instruction: "요청하신 교통수단으로 이동이 어려워, 최적 경로로 안내합니다. " + originalInstr, // 안내 멘트 결합
+                detail: finalSteps[0].detail,
+                action: finalSteps[0].action,
+                stopCount: finalSteps[0].stopCount,
+                duration: finalSteps[0].duration,
+                distance: finalSteps[0].distance,
+                vehicleType: finalSteps[0].vehicleType
+            )
+        }
+        
+        self.steps = finalSteps
         self.routeOrigin = origin
         self.routeDestination = destination
         self.totalDistance = routeData.totalDistance

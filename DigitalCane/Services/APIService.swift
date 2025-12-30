@@ -57,7 +57,13 @@ class APIService {
         6. 결과는 반드시 아래의 JSON 형식 하나만 출력하세요. 다른 텍스트는 일절 포함하지 마세요.
 
         Output format:
-        {"destinationName": "추출된 목적지", "originName": "추출된 출발지", "transportMode": "TRANSIT", "clarificationNeeded": false, "clarificationQuestion": null}
+        {"destinationName": "추출된 목적지", "originName": "추출된 출발지", "transportMode": "TRANSIT", "preferredTransportModes": ["BUS", "SUBWAY"], "clarificationNeeded": false, "clarificationQuestion": null}
+        
+        Usage Guide for 'preferredTransportModes':
+        - If user says "버스로 가고 싶어" -> ["BUS"]
+        - If user says "지하철이나 기차로 안내해줘" -> ["SUBWAY", "RAIL"]
+        - If user doesn't specify or says "상관없어" -> null
+        - Supported values: "BUS", "SUBWAY", "RAIL"
         """
         
         // Gemini API 요청 바디
@@ -229,11 +235,15 @@ class APIService {
         }
     }
     
-    // MARK: - 3. Google Routes API (백업용 - 향후 제거 예정)
-    func fetchRoute(from origin: String, to destination: String, currentLocation: CLLocation? = nil, completion: @escaping (RouteData?) -> Void) {
+    // MARK: - 3. Google Routes API (백업용 -> 메인 대중교통 엔진)
+    func fetchRoute(from origin: String, 
+                    to destination: String, 
+                    currentLocation: CLLocation? = nil, 
+                    preferredModes: [String]? = nil,
+                    completion: @escaping (RouteData?, Bool) -> Void) { // Bool: isFallbackApplied (선호 수단 실패로 전체 검색했는지)
         guard !googleApiKey.isEmpty else {
             print("Google API Key is missing")
-            completion(nil)
+            completion(nil, false)
             return
         }
         
@@ -259,13 +269,11 @@ class APIService {
                 ]
             ]
         } else if origin == "Current Location" {
-             // 좌표가 없으면 실패 처리 (임의 위치인 서울역으로 안내하면 위험함)
              print("Current Location is required but nil")
-             completion(nil)
+             completion(nil, false)
              return
         }
         
-        // Google Routes API v2 (Latest Standard 2025)
         // Google Routes API v2 (Latest Standard 2025)
         var requestBody: [String: Any] = [
             "origin": originBody,
@@ -275,25 +283,37 @@ class APIService {
             "computeAlternativeRoutes": false
         ]
         
-        // 설정값 확인: 걷기 최소화(안전 우선)
+        // 1. transitPreferences 객체 준비
+        var transitPreferences: [String: Any] = [:]
+        
+        // 2. 도보 최소화 (안전 우선)
         if UserDefaults.standard.bool(forKey: "preferLessWalking") {
-            requestBody["transitPreferences"] = [
-                "routingPreference": "LESS_WALKING"
-            ]
+            transitPreferences["routingPreference"] = "LESS_WALKING"
+        }
+        
+        // 3. 사용자 선호 교통수단 (Strict Filtering)
+        // 사용자가 특정 수단을 선호하면 해당 수단만 허용(Allowed)하여 요청
+        if let modes = preferredModes, !modes.isEmpty {
+            transitPreferences["allowedTravelModes"] = modes
+            print("🔹 Applying Travel Preference: \(modes)")
+        }
+        
+        if !transitPreferences.isEmpty {
+            requestBody["transitPreferences"] = transitPreferences
         }
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
             print("Error creating Google Routes body: \(error)")
-            completion(nil)
+            completion(nil, false)
             return
         }
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             guard let data = data, error == nil else {
                 print("Google Routes Network Error: \(error?.localizedDescription ?? "Unknown error")")
-                completion(nil)
+                completion(nil, false)
                 return
             }
             
@@ -441,14 +461,24 @@ class APIService {
                     
                     print("✅ Route Integrated: \(processedSteps.count) steps, Duration: \(totalDuration)")
                     let routeData = RouteData(steps: processedSteps, totalDuration: totalDuration, totalDistance: totalDistance)
-                    completion(routeData)
+                    completion(routeData, false) // 성공 (Fallback 아님)
                 } else {
                     print("⚠️ No routes found in response")
-                    completion(nil)
+                    
+                    // Fallback Logic: 선호 수단으로 검색했는데 실패했다면, 전체 수단으로 재검색
+                    if let modes = preferredModes, !modes.isEmpty {
+                        print("🔄 Fallback: Retrying with ALL modes...")
+                        self.fetchRoute(from: origin, to: destination, currentLocation: currentLocation, preferredModes: nil) { retryData, _ in
+                            // 재시도 결과 반환 (이때는 Fallback이 적용되었음을 알림 -> true)
+                            completion(retryData, true)
+                        }
+                    } else {
+                        completion(nil, false)
+                    }
                 }
             } catch {
                 print("❌ Google Routes Decoding Error: \(error)")
-                completion(nil)
+                completion(nil, false)
             }
         }.resume()
     }
@@ -1009,6 +1039,8 @@ struct LocationIntent: Codable {
     // 대화형 정교화를 위한 필드
     let clarificationNeeded: Bool?
     let clarificationQuestion: String?
+    // 사용자 선호 교통수단 (Optional)
+    let preferredTransportModes: [String]?
 }
 
 struct RouteData {
