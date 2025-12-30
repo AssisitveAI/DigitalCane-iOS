@@ -13,7 +13,7 @@ struct NearbyExploreView: View {
     @State private var isLoading = false
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
-    @State private var isScanningMode = false // 스캔 모드 활성화 여부
+    @State private var isVisible = false // 화면 표시 여부 추가
     
     // 마지막으로 안내한 장소 및 시간 (중복 안내 방지)
     @State private var lastAnnouncedPlaceId: UUID?
@@ -94,7 +94,7 @@ struct NearbyExploreView: View {
                             HStack {
                                 Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
                                     .font(.title2)
-                                Text("여기로 경로안내 시작")
+                                    Text("여기로 경로안내 시작")
                                     .dynamicFont(size: 20, weight: .bold)
                             }
                             .padding()
@@ -125,6 +125,7 @@ struct NearbyExploreView: View {
         }
         .background(Color.black)
         .onAppear {
+            isVisible = true // 화면 진입
             // 화면 진입 시 자동 검색 시작
             if places.isEmpty {
                 fetchPlaces()
@@ -135,11 +136,12 @@ struct NearbyExploreView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshNearbyExplore"))) { _ in
             // 탭을 다시 누를 때마다 장소 정보 수동 갱신
-            if !isLoading {
+            if !isLoading && isVisible {
                 fetchPlaces()
             }
         }
         .onDisappear {
+            isVisible = false // 화면 이탈
             stopScanning()
         }
         .onChange(of: compassManager.heading) { newHeading in
@@ -214,6 +216,9 @@ struct NearbyExploreView: View {
             return
         }
         
+        // 화면이 보이지 않으면 중단 (백그라운드 실행 방지)
+        guard isVisible else { return }
+        
         // 디바운싱: 3초 이내 중복 호출 방지
         let now = Date()
         guard now.timeIntervalSince(lastFetchTime) >= minimumFetchInterval else {
@@ -232,6 +237,9 @@ struct NearbyExploreView: View {
         ) { fetchedPlaces, error in
             DispatchQueue.main.async {
                 self.isLoading = false
+                
+                // 비동기 작업 완료 시점에 화면이 떠났으면 중단
+                guard self.isVisible else { return }
                 
                 if let fetchedPlaces = fetchedPlaces {
                     self.places = fetchedPlaces
@@ -261,6 +269,7 @@ struct NearbyExploreView: View {
     
     // 스캔 모드 제어
     private func startScanning() {
+        guard isVisible else { return } // 화면이 보일 때만 시작
         guard !isScanningMode else { return }
         isScanningMode = true
         compassManager.start()
