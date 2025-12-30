@@ -308,17 +308,20 @@ class APIService {
                                 instruction: newInstruction,
                                 detail: step.detail,
                                 action: step.action,
-                                stopCount: step.stopCount
+                                stopCount: step.stopCount,
+                                duration: step.duration,
+                                distance: step.distance
                             )
                         }
                         return step
                     }
                     
-                    // 총 소요 시간: localizedValues 우선 사용 (형식: "1시간 4분") -> 없으면 초 단위 계산
-                    var totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text
+                    // 총 소요 시간 및 거리
+                    let totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text ?? ""
+                    let totalDistance = leg.localizedValues?.distance?.text ?? ""
                     
-                    print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration ?? "")")
-                    let routeData = RouteData(steps: steps, totalDuration: totalDuration ?? "")
+                    print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration), Distance: \(totalDistance)")
+                    let routeData = RouteData(steps: steps, totalDuration: totalDuration, totalDistance: totalDistance)
                     completion(routeData)
                 } else {
                     print("⚠️ No routes found in response")
@@ -689,14 +692,11 @@ class APIService {
 
     // Google API Step → App RouteStep 변환 로직 (백업용)
     private func convertStep(_ gStep: GRouteStep) -> RouteStep? {
-        // 도보 경로는 제외 (사용자 요청: 정류장/역 이름, 버스 번호 등만 제공)
-        if gStep.travelMode == "WALK" {
-            return nil
-        }
+        let duration = gStep.localizedValues?.duration?.text ?? gStep.localizedValues?.staticDuration?.text ?? ""
+        let distance = gStep.localizedValues?.distance?.text ?? ""
         
-        let detail = gStep.localizedValues?.duration?.text ?? gStep.localizedValues?.staticDuration?.text ?? ""
-        var type: StepType = .ride
-        var action = "이동"
+        var type: StepType = .walk
+        var action = "도보"
         var instruction = gStep.navigationInstruction?.instructions ?? "이동"
         var stopCount = 0
         
@@ -768,13 +768,21 @@ class APIService {
             
             return RouteStep(type: .board,
                              instruction: instruction,
-                             detail: "이동 시간 약 \(detailInfo)",
+                             detail: "\(duration). \(distance) 이동.",
                              action: action,
-                             stopCount: stopCount)
+                             stopCount: stopCount,
+                             duration: duration,
+                             distance: distance)
         }
         
-        // 기타/Fallback
-        return nil
+        // 도보/기타
+        return RouteStep(type: .walk,
+                         instruction: instruction,
+                         detail: "\(duration). \(distance) 이동.",
+                         action: "도보",
+                         stopCount: 0,
+                         duration: duration,
+                         distance: distance)
     }
 }
 
@@ -792,6 +800,7 @@ struct LocationIntent: Codable {
 struct RouteData {
     let steps: [RouteStep]
     let totalDuration: String
+    let totalDistance: String
 }
 
 enum StepType {
@@ -803,7 +812,9 @@ struct RouteStep {
     let instruction: String
     let detail: String
     let action: String
-    let stopCount: Int // 정류장 개수 추가
+    let stopCount: Int
+    let duration: String?
+    let distance: String?
 }
 
 // MARK: - Gemini Codable Models

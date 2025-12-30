@@ -222,20 +222,32 @@ struct NavigationModeView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 상단 제목 (심플하고 명확하게)
-            HStack {
-                Text(navigationManager.routeDestination)
-                    .dynamicFont(size: 28, weight: .bold)
-                    .foregroundColor(.yellow)
-                Spacer()
-                Text("이동 중")
-                    .font(.caption.bold())
+            // 상단 요약 (총 시간 및 거리 포함)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .bottom) {
+                    Text(navigationManager.routeDestination)
+                        .dynamicFont(size: 28, weight: .bold)
+                        .foregroundColor(.yellow)
+                    
+                    Spacer()
+                    
+                    Text(navigationManager.currentRouteDescription)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.yellow.opacity(0.2))
+                        .cornerRadius(8)
+                }
+                
+                Text(navigationManager.routeOrigin + " 출발")
+                    .font(.caption)
                     .foregroundColor(.gray)
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
-            .padding(.bottom, 10)
-            .background(Color.black)
+            .padding(.bottom, 15)
+            .background(Color.white.opacity(0.03))
             
             // 단계별 안내 리스트 (인지지도 형성에 최적화된 리스트 방식)
             ScrollView {
@@ -332,13 +344,14 @@ struct NavigationModeView: View {
         }
     }
     
-    // 전체 경로 개요 안내 (핵심만 짧게)
+    // 전체 경로 개요 안내 (거리 정보 포함)
     private func announceOverview() {
         let origin = navigationManager.routeOrigin
         let dest = navigationManager.routeDestination
         let totalSteps = navigationManager.steps.count
+        let totalDistance = navigationManager.totalDistance
         
-        let message = "\(origin)에서 \(dest)로 가는 경로 안내를 시작합니다. 총 \(totalSteps)단계입니다. 화면을 눌러 상세 안내를 확인하세요."
+        let message = "\(origin)에서 \(dest)로 가는 경로 안내를 시작합니다. 총 \(totalSteps)단계, 거리 \(totalDistance)입니다. 화면을 눌러 상세 안내를 확인하세요."
         speechManager.speak(message)
     }
 }
