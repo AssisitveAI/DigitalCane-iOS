@@ -104,28 +104,19 @@ struct ContentView: View {
 // 대기 및 음성 명령 입력 모드 (버튼을 누르고 있으면 듣기)
 struct VoiceCommandModeView: View {
     @EnvironmentObject var speechManager: SpeechManager
+    @EnvironmentObject var navigationManager: NavigationManager
     var onCommit: (String) -> Void
     
-    // 제스처 상태 추적
-    @State private var isTouching = false
-    
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 30) {
-                // 시각적 피드백 (아이콘)
-                Image(systemName: speechManager.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 140, height: 140)
-                    .foregroundColor(speechManager.isRecording ? .red : .yellow)
-                    .padding(.top, 40)
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityRemoveTraits(.isImage)
-                    .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 전송됩니다." : "마이크 버튼. 누르고 있으면 말하기, 떼면 전송")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 40) {
+                Spacer()
                 
-                // 텍스트 안내
-                Text(speechManager.isRecording ? "듣고 있어요..." : "화면을 누른 상태로\n목적지를 말해주세요")
-                    .dynamicFont(size: 28, weight: .bold)
+                // 안내 텍스트
+                Text(speechManager.isRecording ? "듣고 있어요...\n말을 끝내려면 버튼을 누르세요" : "아래 마이크 버튼을 눌러\n목적지를 말씀해주세요")
+                    .dynamicFont(size: 26, weight: .bold)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
@@ -140,59 +131,66 @@ struct VoiceCommandModeView: View {
                             .dynamicFont(size: 20, weight: .bold)
                             .foregroundColor(.yellow)
                     }
-                    .padding()
+                    .frame(height: 100)
                 } else if !speechManager.transcript.isEmpty {
-                    VStack(spacing: 10) {
-                        Text("인식 중...")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Text("\"\(speechManager.transcript)\"")
-                            .dynamicFont(size: 22)
-                            .foregroundColor(.yellow)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+                    Text("\"\(speechManager.transcript)\"")
+                        .dynamicFont(size: 22)
+                        .foregroundColor(.yellow)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(15)
+                        .padding(.horizontal)
+                        .frame(height: 100)
+                } else {
+                    Spacer().frame(height: 100)
+                }
+                
+                // 마이크 토글 버튼 (사용자 요청 반영: 확실한 버튼 인터랙션)
+                Button(action: {
+                    toggleListening()
+                }) {
+                    VStack(spacing: 15) {
+                        ZStack {
+                            Circle()
+                                .fill(speechManager.isRecording ? Color.red.opacity(0.2) : Color.yellow.opacity(0.1))
+                                .frame(width: 180, height: 180)
+                                .scaleEffect(speechManager.isRecording ? 1.2 : 1.0)
+                                .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: speechManager.isRecording)
+                            
+                            Image(systemName: speechManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 120, height: 120)
+                                .foregroundColor(speechManager.isRecording ? .red : .yellow)
+                        }
+                        
+                        Text(speechManager.isRecording ? "말하기 중단 및 전송" : "마이크 켜기")
+                            .dynamicFont(size: 20, weight: .bold)
+                            .foregroundColor(speechManager.isRecording ? .red : .yellow)
                     }
-                    .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(15)
-                    .padding(.horizontal)
                 }
+                .accessibilityLabel(speechManager.isRecording ? "중단 및 전송 버튼" : "마이크 버튼")
+                .accessibilityHint(speechManager.isRecording ? "말을 끝내고 경로 검색을 시작합니다." : "누른 후 목적지를 말씀해 주세요.")
+                
+                Spacer()
             }
-            .padding(.bottom, 50) 
+            .padding(.bottom, 30)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle()) // 이 영역을 통해 터치 제스처 감지
-        .background(Color.black)
-        // Hold to Speak 제스처 (DragGesture 활용)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !isTouching {
-                        isTouching = true
-                        startListening()
-                    }
-                }
-                .onEnded { _ in
-                    isTouching = false
-                    stopListeningAndCommit()
-                }
-        )
-        // VoiceOver 매직 탭 지원 (접근성)
-        .accessibilityAction(.magicTap) {
-            if speechManager.isRecording {
-                stopListeningAndCommit()
-            } else {
-                startListening()
-            }
+    }
+    
+    private func toggleListening() {
+        if speechManager.isRecording {
+            stopListeningAndCommit()
+        } else {
+            startListening()
         }
-        // VoiceOver 다이렉트 터치 허용 (즉시 반응)
-        .accessibilityAddTraits(.allowsDirectInteraction)
     }
     
     private func startListening() {
         if !speechManager.isRecording {
             speechManager.startRecording()
-            // 햅틱 피드백 (선택)
+            // 햅틱 피드백
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
         }
@@ -207,13 +205,11 @@ struct VoiceCommandModeView: View {
             
             // 텍스트가 있으면 검색 실행
             if !speechManager.transcript.isEmpty {
-                // 잠시 딜레이를 주어 사용자가 자신의 말이 인식되었는지 확인하게 함
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     onCommit(speechManager.transcript)
                 }
             } else {
-                // 인식된 내용이 없으면 안내 멘트
-                speechManager.speak("목소리가 인식되지 않았습니다. 다시 시도해주세요.")
+                speechManager.speak("인식된 내용이 없습니다. 다시 시도해주세요.")
             }
         }
     }
