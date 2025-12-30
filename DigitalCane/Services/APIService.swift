@@ -37,43 +37,45 @@ class APIService {
             return
         }
         
-        // Gemini 2.5 Flash API 엔드포인트 (2025년 12월 기준 최신 안정 버전)
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\(geminiApiKey)")!
+        // Gemini 2.0 Flash API 엔드포인트
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(geminiApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // 시스템 프롬프트와 사용자 입력
         let systemPrompt = """
-        You are '디지털케인' (Digital Cane), an AI assistant for visually impaired users.
-        Your task is to extract the intended 'destinationName' and 'originName' from natural speech for route guidance.
-        
+        당신은 시각장애인을 위한 음성 안내 서비스 '디지털케인'의 AI 어시스턴트입니다.
+        사용자의 대화 내역 전체를 분석하여 최종적인 '목적지(destinationName)'와 '출발지(originName)'를 추출하세요.
+
         CRITICAL RULES:
-        0. **ALWAYS EXTRACT PLACE NAMES IN KOREAN (한국어)**.
-        1. Extract names exactly as spoken. Use context ONLY for well-known locations (e.g., '맹학교' -> '서울맹학교').
-        2. If no destination, set "destinationName" to "".
-        3. If no origin, set "originName" to "".
-        4. Default "transportMode" to "TRANSIT".
-        5. If ambiguous, set "clarificationNeeded" to true and ask a SHORT Korean question.
-        
-        Example:
-        - User: "서울역 가는 법 좀 알려줘" -> {"destinationName": "서울역", "originName": "", "transportMode": "TRANSIT", "clarificationNeeded": false, "clarificationQuestion": null}
-        
-        Respond ONLY in valid JSON.
+        1. **모든 장소 이름은 한국어(Korean)로 추출하세요.**
+        2. 사용자의 **가장 최근 입력(Last Turn)**이 이전 대화와 모순된다면, 최근 입력을 우선하여 정보를 업데이트하세요.
+        3. 장소 이름이 불완전하거나 발음이 비슷한 오타(예: "항상" -> "하상", "서오울" -> "서울")가 있다면 대화 문맥과 상식적인 지명으로 교정하세요.
+        4. "originName"이 명시되지 않았다면 ""로 설정하세요. (UI에서 현재 위치로 자동 처리됨)
+        5. "destinationName"을 도저히 알 수 없는 경우에만 ""로 설정하세요. 절대 임의의 장소(예: 서울역)를 지어내지 마세요.
+        6. 결과는 반드시 아래의 JSON 형식 하나만 출력하세요. 다른 텍스트는 일절 포함하지 마세요.
+
+        Output format:
+        {"destinationName": "추출된 목적지", "originName": "추출된 출발지", "transportMode": "TRANSIT", "clarificationNeeded": false, "clarificationQuestion": null}
         """
         
         // Gemini API 요청 바디
         let requestBody: [String: Any] = [
             "contents": [
                 [
+                    "role": "user",
                     "parts": [
-                        ["text": "\(systemPrompt)\n\nUser input: \(text)"]
+                        ["text": "\(systemPrompt)\n\n[CONVERSATION HISTORY]\n\(text)\n\n[INSTRUCTION]\nExtract the locations based on the latest turn in the history above. Respond with JSON only."]
                     ]
                 ]
             ],
             "generationConfig": [
                 "responseMimeType": "application/json",
-                "temperature": 0.1  // 일관된 JSON 출력을 위해 낮은 온도
+                "temperature": 0.0,
+                "topP": 0.95,
+                "topK": 40,
+                "maxOutputTokens": 1024
             ]
         ]
         
@@ -98,8 +100,16 @@ class APIService {
                    let jsonData = content.data(using: .utf8) {
                     print("🤖 Gemini Raw JSON: \(content)")
                     
+                    // 단일 객체로 파싱 시도
                     if let intent = try? JSONDecoder().decode(LocationIntent.self, from: jsonData) {
                         completion(intent)
+                    }
+                    // 배열로 파싱 시도 (대화 히스토리 사용 시)
+                    else if let intentArray = try? JSONDecoder().decode([LocationIntent].self, from: jsonData),
+                            let lastIntent = intentArray.last {
+                        // 가장 마지막 의도(최신)를 사용
+                        print("📋 Parsed array of \(intentArray.count) intents, using last one")
+                        completion(lastIntent)
                     } else {
                         print("Failed to parse Gemini Content")
                         completion(nil)
@@ -297,59 +307,119 @@ class APIService {
                 if let route = decodedResponse.routes?.first,
                    let leg = route.legs?.first {
                     
-                    // GRouteStep -> RouteStep 변환 (도보 포함)
+                    // GRouteStep -> RouteStep 변환 (원천 데이터 수집)
                     let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
                     
-                    // 도보 통합 로직: 도보를 이전 대중교통 단계의 "하차 후" 정보로 병합
-                    // 시간순: 탑승 → 탑승 시간 → 하차 후 도보
-                    var mergedSteps: [RouteStep] = []
+                    // 도보 단계를 항목에서 제거하고 대중교통 단계에 자연스럽게 녹임
+                    var rawTransitSteps: [RouteStep] = []
+                    var walkInstructionsBuffer: [String] = []
+                    var lastTransitVehicleType: String? = nil
                     
-                    for (index, step) in allSteps.enumerated() {
+                    for step in allSteps {
                         if step.type == .walk {
-                            // 도보 정보를 이전 대중교통 단계에 "하차 후 환승 도보"로 추가
-                            let walkDistance = step.distance ?? ""
-                            let walkDuration = step.duration ?? ""
-                            
-                            if !mergedSteps.isEmpty && !walkDistance.isEmpty {
-                                let lastIndex = mergedSteps.count - 1
-                                let lastStep = mergedSteps[lastIndex]
-                                
-                                var walkInfo = walkDistance
-                                if !walkDuration.isEmpty {
-                                    walkInfo += ", 약 \(walkDuration)"
-                                }
-                                
-                                // 마지막 단계인지 확인 (다음에 대중교통이 있는지)
-                                let isLastWalk = (index == allSteps.count - 1) || 
-                                                 !allSteps.dropFirst(index + 1).contains { $0.type != .walk }
-                                
-                                let walkSuffix: String
-                                if isLastWalk {
-                                    walkSuffix = "🚶 하차 후 도보 \(walkInfo) → 도착"
-                                } else {
-                                    walkSuffix = "🚶 하차 후 환승 도보 \(walkInfo)"
-                                }
-                                
-                                let newDetail = lastStep.detail.isEmpty ? walkSuffix : lastStep.detail + "\n" + walkSuffix
-                                mergedSteps[lastIndex] = RouteStep(
-                                    type: lastStep.type,
-                                    instruction: lastStep.instruction,
-                                    detail: newDetail,
-                                    action: lastStep.action,
-                                    stopCount: lastStep.stopCount,
-                                    duration: lastStep.duration,
-                                    distance: lastStep.distance
-                                )
+                            // 단순 이동은 생략하고, 핵심 정보(역 이름, 입구/출구, 방향)를 버퍼에 보관
+                            let instr = step.instruction
+                            if !instr.isEmpty {
+                                walkInstructionsBuffer.append(instr)
                             }
                         } else {
-                            // 대중교통 단계는 그대로 추가
-                            mergedSteps.append(step)
+                            // 대중교통 단계
+                            var refinedInstruction = step.instruction
+                            let currentVehicleType = step.vehicleType
+                            
+                            // 버퍼에 쌓인 도보 정보(이동 경로) 통합
+                            if !walkInstructionsBuffer.isEmpty {
+                                // ⚠️ 정책 반영: 출발/환승 시 '입구/출구' 정보는 상대적이므로 생략 (역 이름 정보만 추출하여 사용)
+                                // 입구/출구 숫자가 포함된 정보를 거르고 역 이름 위주로 정리
+                                let filteredWalkInfo = walkInstructionsBuffer.map { info -> String in
+                                    if info.contains("출구") || info.contains("입구") {
+                                        // "서울역 5번 출구" -> "서울역" 처럼 역 이름만 남기거나, 
+                                        // 입구 정보만 있는 경우 빈 값으로 만들어 무시
+                                        return info.replacingOccurrences(of: "[0-9]+(-[0-9]+)?번\\s*(입구|출구)", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+                                    }
+                                    return info
+                                }.filter { !$0.isEmpty }
+                                
+                                walkInstructionsBuffer.removeAll()
+                                
+                                if !filteredWalkInfo.isEmpty {
+                                    let walkPrefix = filteredWalkInfo.joined(separator: " 및 ")
+                                    
+                                    if let stationRange = refinedInstruction.range(of: "에서 ") {
+                                        let transitCore = String(refinedInstruction[stationRange.upperBound...])
+                                        let stationName = String(refinedInstruction[..<stationRange.lowerBound])
+                                        
+                                        if walkPrefix.contains(stationName) {
+                                            refinedInstruction = "\(walkPrefix)에서 \(transitCore)"
+                                        } else {
+                                            refinedInstruction = "\(stationName) \(walkPrefix)에서 \(transitCore)"
+                                        }
+                                    } else {
+                                        refinedInstruction = "\(walkPrefix)에서 \(refinedInstruction)"
+                                    }
+                                }
+                            }
+                            
+                            lastTransitVehicleType = currentVehicleType
+                            rawTransitSteps.append(RouteStep(
+                                type: step.type,
+                                instruction: refinedInstruction,
+                                detail: step.detail,
+                                action: step.action,
+                                stopCount: step.stopCount,
+                                duration: step.duration,
+                                distance: step.distance,
+                                vehicleType: step.vehicleType
+                            ))
                         }
                     }
                     
-                    // 환승 명시화 로직: 마지막 단계가 아니면 "하차" -> "하차 및 환승"으로 변경
-                    let steps = mergedSteps.enumerated().map { (index, step) -> RouteStep in
-                        if index < mergedSteps.count - 1 && step.type != .walk {
+                    // 마지막에 남은 도보 정보(도착지 안내 - 출구 정보 필수) 처리
+                    if !walkInstructionsBuffer.isEmpty && !rawTransitSteps.isEmpty {
+                        let lastIdx = rawTransitSteps.count - 1
+                        let lastStep = rawTransitSteps[lastIdx]
+                        
+                        // 도착지에서는 '출구' 정보가 매우 중요하므로 그대로 유지
+                        let walkSuffix = walkInstructionsBuffer.joined(separator: " 및 ")
+                        
+                        let connector = walkSuffix.contains("출구") ? "를 통해 나가서" : "로 이동하여"
+                        let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 \(walkSuffix)\(connector) 도착.")
+                        
+                        rawTransitSteps[lastIdx] = RouteStep(
+                            type: lastStep.type,
+                            instruction: newInstruction,
+                            detail: lastStep.detail,
+                            action: lastStep.action,
+                            stopCount: lastStep.stopCount,
+                            duration: lastStep.duration,
+                            distance: lastStep.distance,
+                            vehicleType: lastStep.vehicleType
+                        )
+                    }
+ else if !rawTransitSteps.isEmpty {
+                        let lastIdx = rawTransitSteps.count - 1
+                        let lastStep = rawTransitSteps[lastIdx]
+                        if !lastStep.instruction.contains("도착") {
+                            let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 도착.")
+                            rawTransitSteps[lastIdx] = RouteStep(
+                                type: lastStep.type,
+                                instruction: newInstruction,
+                                detail: lastStep.detail,
+                                action: lastStep.action,
+                                stopCount: lastStep.stopCount,
+                                duration: lastStep.duration,
+                                distance: lastStep.distance,
+                                vehicleType: lastStep.vehicleType
+                            )
+                        }
+                    }
+                    
+                    // 결과가 도보뿐이라 대중교통이 하나도 없는 경우에만 도보 단계 노출
+                    let transitResult = rawTransitSteps.isEmpty ? allSteps : rawTransitSteps
+                    
+                    // 중간 단계의 "하차"를 "하차 및 환승"으로 보완
+                    let processedSteps = transitResult.enumerated().map { (index, step) -> RouteStep in
+                        if index < transitResult.count - 1 && step.type != .walk {
                             let newInstruction = step.instruction.replacingOccurrences(of: "하차.", with: "하차 및 환승.")
                             return RouteStep(
                                 type: step.type,
@@ -358,7 +428,8 @@ class APIService {
                                 action: step.action,
                                 stopCount: step.stopCount,
                                 duration: step.duration,
-                                distance: step.distance
+                                distance: step.distance,
+                                vehicleType: step.vehicleType
                             )
                         }
                         return step
@@ -368,8 +439,8 @@ class APIService {
                     let totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text ?? ""
                     let totalDistance = leg.localizedValues?.distance?.text ?? ""
                     
-                    print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration), Distance: \(totalDistance)")
-                    let routeData = RouteData(steps: steps, totalDuration: totalDuration, totalDistance: totalDistance)
+                    print("✅ Route Integrated: \(processedSteps.count) steps, Duration: \(totalDuration)")
+                    let routeData = RouteData(steps: processedSteps, totalDuration: totalDuration, totalDistance: totalDistance)
                     completion(routeData)
                 } else {
                     print("⚠️ No routes found in response")
@@ -755,7 +826,8 @@ class APIService {
             action: action,
             stopCount: 0,
             duration: "", // MapKit 단계별 시간 정보 부재
-            distance: "\(distance)m"
+            distance: "\(distance)m",
+            vehicleType: "SUBWAY" // MapKit은 주로 지하철/철도 위주
         )
     }
 
@@ -869,31 +941,49 @@ class APIService {
                              action: action,
                              stopCount: stopCount,
                              duration: duration,
-                             distance: distance)
+                             distance: distance,
+                             vehicleType: transit.transitLine?.vehicle?.type)
         }
         
-        // 도보 단계: 환승 연결 정보로 포함 (끊김 방지)
-        // 짧은 도보(100m 미만)는 간략히, 긴 도보는 상세하게
+        // 도보 단계 처리 (불필요한 파편화 제거)
         let distanceNum = Int(distance.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)) ?? 0
+        let originalInstruction = gStep.navigationInstruction?.instructions ?? ""
+        
+        // 1. 아주 짧은 의미 없는 도보(2m 이하)는 필터링 (단, 입/출구 정보가 있으면 유지)
+        if distanceNum < 3 && !originalInstruction.contains("출구") && !originalInstruction.contains("입구") {
+            return nil
+        }
         
         if distanceNum > 0 {
             var walkInstruction = ""
             var walkDetail = ""
             
-            if distanceNum < 100 {
-                // 짧은 도보: 환승 안내
-                walkInstruction = "환승을 위해 약 \(distanceNum)m 도보 이동."
-                walkDetail = duration.isEmpty ? "" : "약 \(duration) 소요"
-            } else {
-                // 긴 도보: 상세 안내
-                let directionHint = gStep.navigationInstruction?.instructions ?? ""
-                if !directionHint.isEmpty && !directionHint.contains("Walk") {
-                    walkInstruction = "\(directionHint) 방향으로 \(distanceNum)m 도보 이동."
-                } else {
-                    walkInstruction = "도보로 \(distanceNum)m 이동."
+            // 핵심 안내 내용 (역 이름, 출구/입구/방향 등) 추출
+            let isStationTarget = originalInstruction.contains("까지") || originalInstruction.contains("역")
+            let isGateInfo = originalInstruction.contains("출구") || originalInstruction.contains("입구") || originalInstruction.contains("방향")
+            
+            if !originalInstruction.isEmpty && (isStationTarget || isGateInfo) {
+                var cleaned = originalInstruction.replacingOccurrences(of: " 이용", with: "")
+                
+                // 숫자 뒤에 '번'이 없으면 추가 (예: "5 입구" -> "5번 입구")
+                let pattern = "([0-9]+(-[0-9]+)?)\\s*(입구|출구)"
+                if let regex = try? NSRegularExpression(pattern: pattern) {
+                    let range = NSRange(location: 0, length: cleaned.utf16.count)
+                    cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "$1번 $3")
                 }
-                walkDetail = duration.isEmpty ? "" : "약 \(duration) 소요"
+                
+                walkInstruction = cleaned.trimmingCharacters(in: .whitespaces)
+            } else if distanceNum > 100 {
+                // 특정 거점 정보가 없더라도 도보가 100m 이상이면 안내 (기능 필수 요청 반영)
+                walkInstruction = "약 \(distanceNum)m 이동하세요"
+            } else {
+                walkInstruction = ""
             }
+            
+            // 필수 정보(역 이름 등)가 있으면 거리와 상관없이 유지
+            if walkInstruction.isEmpty && !isStationTarget && distanceNum < 100 { return nil }
+            
+            walkDetail = duration.isEmpty ? "" : "약 \(duration)"
             
             return RouteStep(type: .walk,
                              instruction: walkInstruction,
@@ -901,7 +991,8 @@ class APIService {
                              action: "도보 \(distanceNum)m",
                              stopCount: 0,
                              duration: duration,
-                             distance: distance)
+                             distance: distance,
+                             vehicleType: nil)
         }
         
         // 거리 정보도 없는 도보 단계는 제외
@@ -938,6 +1029,7 @@ struct RouteStep {
     let stopCount: Int
     let duration: String?
     let distance: String?
+    let vehicleType: String? // "BUS", "SUBWAY" 등
 }
 
 // MARK: - Gemini Codable Models

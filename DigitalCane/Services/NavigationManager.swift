@@ -54,8 +54,8 @@ class NavigationManager: ObservableObject {
     func findRoute(to userVoiceInput: String, locationManager: LocationManager, onFailure: @escaping (String) -> Void) {
         print("User Voice Input: \(userVoiceInput)")
         
-        // 대화 히스토리에 현재 입력 추가
-        conversationHistory.append("사용자: \(userVoiceInput)")
+        // 대화 히스토리에 현재 입력 추가 (Main Thread에서 호출됨을 가정하거나, 안전하게 즉시 추가)
+        self.conversationHistory.append("사용자: \(userVoiceInput)")
         
         // 위치 서비스 상태 확인
         if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
@@ -72,7 +72,9 @@ class NavigationManager: ObservableObject {
             return
         }
         
-        isLoading = true
+        DispatchQueue.main.async {
+            self.isLoading = true
+        }
         
         // 전체 대화 맥락을 포함하여 AI에 전달
         let fullContext = conversationHistory.joined(separator: "\n")
@@ -84,10 +86,10 @@ class NavigationManager: ObservableObject {
             // 1-1. 추가 정보가 필요한 경우 (대화형 정교화)
             if let intent = intent, intent.clarificationNeeded == true, let question = intent.clarificationQuestion {
                 print("Clarification needed: \(question)")
-                // AI 질문도 히스토리에 추가
-                self.conversationHistory.append("AI: \(question)")
-                self.isWaitingForClarification = true
                 DispatchQueue.main.async {
+                    // AI 질문도 히스토리에 추가
+                    self.conversationHistory.append("AI: \(question)")
+                    self.isWaitingForClarification = true
                     self.isLoading = false
                     onFailure(question)
                 }
@@ -105,38 +107,42 @@ class NavigationManager: ObservableObject {
                 return
             }
             
-            // 성공적으로 의도 파악 완료 - 대화 히스토리 초기화
-            self.isWaitingForClarification = false
+            // 성공적으로 의도 파악 완료
+            DispatchQueue.main.async {
+                self.isWaitingForClarification = false
+            }
             
             print("Analyzed Intent: Go to \(intent.destinationName) from \(intent.originName ?? "Current")")
             
             // 2. 목적지 검증 (Google Places API)
             APIService.shared.searchPlaces(query: intent.destinationName) { [weak self] foundPlaces in
                 guard let self = self else { return }
-                guard let places = foundPlaces, !places.isEmpty else {
-                    DispatchQueue.main.async {
+                
+                DispatchQueue.main.async {
+                    guard let places = foundPlaces, !places.isEmpty else {
                         self.isLoading = false
                         onFailure("해당 장소를 찾을 수 없습니다. 정확한 이름을 다시 말씀해 주세요.")
+                        return
                     }
-                    return
-                }
-                
-                let bestMatch = places[0]
-                let validatedDestination = bestMatch.address.isEmpty ? bestMatch.name : bestMatch.address
-                let displayName = bestMatch.name
-                
-                // 출발지 결정
-                let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
-                
-                // 3. 경로 검색
-                APIService.shared.fetchRoute(from: origin, to: validatedDestination, currentLocation: locationManager.currentLocation) { [weak self] routeData in
-                    guard let self = self else { return }
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        if let routeData = routeData {
-                            self.startNavigation(with: routeData, origin: origin, destination: displayName)
-                        } else {
-                            onFailure("해당 목적지로 가는 경로를 찾을 수 없습니다.")
+                    
+                    let bestMatch = places[0]
+                    let validatedDestination = bestMatch.address.isEmpty ? bestMatch.name : bestMatch.address
+                    let displayName = bestMatch.name
+                    
+                    // 출발지 결정
+                    let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
+                    
+                    // 3. 경로 검색
+                    APIService.shared.fetchRoute(from: origin, to: validatedDestination, currentLocation: locationManager.currentLocation) { [weak self] routeData in
+                        guard let self = self else { return }
+                        
+                        DispatchQueue.main.async {
+                            self.isLoading = false
+                            if let routeData = routeData {
+                                self.startNavigation(with: routeData, origin: origin, destination: displayName)
+                            } else {
+                                onFailure("해당 목적지로 가는 경로를 찾을 수 없습니다.")
+                            }
                         }
                     }
                 }
