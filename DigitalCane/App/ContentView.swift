@@ -73,19 +73,25 @@ struct ContentView: View {
             selectedTab = 1
         }
         .onChange(of: selectedTab) { newTab in
-            // 탭 변경 시 즉시 음성 중단 및 햅틱/사운드 피드백
+            // 탭 변경 시 즉시 음성 중단 (이전 탭 찌꺼기 방지)
             speechManager.stopSpeaking()
+            
+            // 햅틱/사운드 피드백
             SoundManager.shared.play(.tabSelection)
             
-            // 각 탭별 기능 재실행 트리거 (Notification 발송)
+            // 이전 탭 정리 및 새 탭 초기화
             switch newTab {
             case 0: // 디지털케인 (주변 탐색)
+                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
             case 1: // 경로 안내
-                 // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
-                 navigationManager.stopNavigation()
+                // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
+                navigationManager.stopNavigation()
             case 2: // 도움 요청 (SOS)
-                 NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
+                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
+            case 3: // 설정
+                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
             default:
                 break
             }
@@ -466,6 +472,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("설정")
+            .onTapGesture {
+                hideKeyboard()
+            }
         }
     }
 }
@@ -576,6 +585,10 @@ struct HelpView: View {
             }
             .padding(.bottom, 50)
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            hideKeyboard()
+        }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
             // 설정된 보호자 번호가 있다면 기본값으로 채워줌
@@ -636,5 +649,12 @@ struct HelpView: View {
         if let url = URL(string: "tel://\(phoneNumber)") {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+// MARK: - 키보드 닫기 헬퍼
+extension View {
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

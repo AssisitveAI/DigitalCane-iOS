@@ -144,6 +144,10 @@ struct NearbyExploreView: View {
         .onDisappear {
             isVisible = false // 화면 이탈
             stopScanning()
+            // 탭 전환 시 완전 초기화 (찌꺼기 상태 방지)
+            lastAnnouncedPlace = nil
+            lastAnnouncedPlaceId = nil
+            speechManager.stopSpeaking()
         }
         .onChange(of: compassManager.heading) { newHeading in
             guard isScanningMode, !places.isEmpty, let currentLocation = locationManager.currentLocation else {
@@ -313,6 +317,11 @@ struct NearbyExploreView: View {
         .min { $0.1 < $1.1 } // 최소 각도 차이 우선
         
         if let (place, _) = bestMatch {
+            // 시야각 내 장소 업데이트 (UI 표시용)
+            if lastAnnouncedPlace?.id != place.id {
+                lastAnnouncedPlace = place
+            }
+            
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
                 SoundManager.shared.play(.finding) // 띠링 효과음 + 햅틱
@@ -321,6 +330,9 @@ struct NearbyExploreView: View {
                 lastAnnouncedPlaceId = place.id
                 lastAnnouncementTime = now
             }
+        } else {
+            // 시야각 밖이면 감지 장소 초기화
+            lastAnnouncedPlace = nil
         }
     }
 }

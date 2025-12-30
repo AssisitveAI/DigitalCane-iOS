@@ -178,7 +178,23 @@ class SpeechManager: ObservableObject {
 class SoundManager {
     static let shared = SoundManager()
     
-    private init() {}
+    private init() {
+        // 햅틱 엔진 사전 준비 (지연 최소화)
+        prepareHapticGenerators()
+    }
+    
+    // 사전 준비된 햅틱 제너레이터들 (성능 최적화)
+    private let heavyGenerator = UIImpactFeedbackGenerator(style: .heavy)
+    private let rigidGenerator = UIImpactFeedbackGenerator(style: .rigid)
+    private let softGenerator = UIImpactFeedbackGenerator(style: .soft)
+    private let notificationGenerator = UINotificationFeedbackGenerator()
+    
+    private func prepareHapticGenerators() {
+        heavyGenerator.prepare()
+        rigidGenerator.prepare()
+        softGenerator.prepare()
+        notificationGenerator.prepare()
+    }
     
     enum SoundType {
         case click          // 일반 클릭
@@ -187,63 +203,78 @@ class SoundManager {
         case recordingEnd   // 녹음 종료
         case success        // 성공 (경로/장소 발견)
         case failure        // 실패/에러
-        case finding        // 탐색 중 (방향 감지)
+        case finding        // 탐색 중 (방향 감지) - 가장 중요!
     }
     
     func play(_ type: SoundType) {
-        // 1. 사운드 재생 (시스템 사운드)
+        // 1. 사운드 재생 (부드럽고 명확한 시스템 사운드)
         var soundID: SystemSoundID = 0
         switch type {
-        case .click:          soundID = 1104
-        case .tabSelection:   soundID = 1103
-        case .recordingStart: soundID = 1113
-        case .recordingEnd:   soundID = 1114
-        case .success:        soundID = 1001 // Mail Sent (Swoosh - Modern)
-        case .failure:        soundID = 1073
-        case .finding:        soundID = 1104 // Tock (Clean & Crisp)
+        case .click:          soundID = 1104  // Tock (부드러운 클릭)
+        case .tabSelection:   soundID = 1103  // Tink (가벼운 탭)
+        case .recordingStart: soundID = 1113  // Begin Recording (표준)
+        case .recordingEnd:   soundID = 1114  // End Recording (표준)
+        case .success:        soundID = 1001  // Mail Sent (부드러운 성공)
+        case .failure:        soundID = 1053  // 부드러운 알림음
+        case .finding:        soundID = 1104  // Tock (부드럽지만 명확)
         }
         AudioServicesPlaySystemSound(soundID)
         
-        // 2. 햅틱 피드백 (즉시 실행 및 강도 강화)
-        // 햅틱 엔진은 메인 스레드에서만 동작하므로, 현재 스레드 확인 후 즉시 실행하여 딜레이 제거
-        let hapticBlock = {
+        // 2. 강화된 햅틱 피드백
+        let hapticBlock = { [self] in
             switch type {
-            case .click, .tabSelection:
-                // Selection(약함) -> Medium(중간)으로 강화
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.prepare()
-                generator.impactOccurred()
+            case .click:
+                // 클릭: Heavy (강함)
+                heavyGenerator.impactOccurred(intensity: 0.8)
+                
+            case .tabSelection:
+                // 탭 변경: Heavy + 약간 뒤에 Soft (이중 햅틱)
+                heavyGenerator.impactOccurred(intensity: 1.0)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [self] in
+                    softGenerator.impactOccurred(intensity: 0.6)
+                }
                 
             case .success:
-                // 성공은 명확한 패턴(Success) 유지
-                let generator = UINotificationFeedbackGenerator()
-                generator.prepare()
-                generator.notificationOccurred(.success)
+                // 성공: Success 알림 + Heavy (이중 피드백)
+                notificationGenerator.notificationOccurred(.success)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
+                    heavyGenerator.impactOccurred(intensity: 1.0)
+                }
                 
             case .failure:
-                // 에러 패턴(Error)
-                let generator = UINotificationFeedbackGenerator()
-                generator.prepare()
-                generator.notificationOccurred(.error)
+                // 실패: Error 알림 (강한 경고)
+                notificationGenerator.notificationOccurred(.error)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [self] in
+                    notificationGenerator.notificationOccurred(.error)
+                }
                 
             case .recordingStart:
-                // Medium -> Heavy(강함)로 강화
-                let generator = UIImpactFeedbackGenerator(style: .heavy)
-                generator.prepare()
-                generator.impactOccurred()
+                // 녹음 시작: Heavy + Rigid (강력한 시작 신호)
+                heavyGenerator.impactOccurred(intensity: 1.0)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
+                    rigidGenerator.impactOccurred(intensity: 1.0)
+                }
                 
             case .recordingEnd:
-                // Heavy -> Rigid(매우 단단함)로 강화
-                let generator = UIImpactFeedbackGenerator(style: .rigid)
-                generator.prepare()
-                generator.impactOccurred()
+                // 녹음 종료: Rigid x2 (확실한 종료 신호)
+                rigidGenerator.impactOccurred(intensity: 1.0)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [self] in
+                    rigidGenerator.impactOccurred(intensity: 0.8)
+                }
                 
             case .finding:
-                // 디지털케인 탐색: Light -> Heavy(강함)로 대폭 강화 (확실한 인지)
-                let generator = UIImpactFeedbackGenerator(style: .heavy)
-                generator.prepare()
-                generator.impactOccurred()
+                // 🔥 디지털케인 탐색: 가장 강력한 3단 햅틱 (확실한 인지!)
+                heavyGenerator.impactOccurred(intensity: 1.0)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [self] in
+                    rigidGenerator.impactOccurred(intensity: 1.0)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [self] in
+                    heavyGenerator.impactOccurred(intensity: 0.9)
+                }
             }
+            
+            // 다음 호출을 위해 제너레이터 준비 (지연 최소화)
+            prepareHapticGenerators()
         }
         
         if Thread.isMainThread {

@@ -145,5 +145,10 @@ class NavigationManager: ObservableObject {
         self.isNavigating = false
         self.steps = []
         self.currentRouteDescription = ""
+        self.routeOrigin = ""
+        self.routeDestination = ""
+        self.totalDistance = ""
+        self.totalDuration = ""
+        self.currentStepIndex = 0
     }
 }
