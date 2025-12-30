@@ -55,7 +55,7 @@ struct ContentView: View {
             // Custom Anchored Tab Bar (4 Tabs)
             HStack(spacing: 0) {
                 tabButton(title: "디지털케인", icon: "magnifyingglass.circle.fill", index: 0)
-                tabButton(title: "이동플래닝", icon: "map.fill", index: 1)
+                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
                 tabButton(title: "도움요청", icon: "exclamationmark.triangle.fill", index: 2)
                 tabButton(title: "설정", icon: "gearshape.fill", index: 3)
             }
@@ -222,92 +222,104 @@ struct NavigationModeView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 상단 요약 바
-            VStack(spacing: 5) {
-                Text(navigationManager.routeDestination)
-                    .dynamicFont(size: 24, weight: .bold)
-                    .foregroundColor(.yellow)
-                Text("\(navigationManager.routeOrigin)에서 출발")
-                    .dynamicFont(size: 14)
-                    .foregroundColor(.gray)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.white.opacity(0.05))
-            
-            // 전단계 리스트는 축소 가능하게 (현재 단계 강조)
-            ScrollView {
-                if navigationManager.steps.isEmpty {
-                    ProgressView()
-                        .padding()
-                } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(Array(navigationManager.steps.enumerated()), id: \.offset) { index, step in
-                            HStack(alignment: .top, spacing: 15) {
-                                Circle()
-                                    .fill(index == navigationManager.currentStepIndex ? Color.yellow : Color.gray)
-                                    .frame(width: 10, height: 10)
-                                    .padding(.top, 5)
-                                
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(step.instruction)
-                                        .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 16, 
-                                                    weight: index == navigationManager.currentStepIndex ? .bold : .regular)
-                                        .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
-                                    
-                                    if !step.detail.isEmpty && index == navigationManager.currentStepIndex {
-                                        Text(step.detail)
-                                            .dynamicFont(size: 16)
-                                            .foregroundColor(.yellow.opacity(0.8))
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 8)
-                            .background(index == navigationManager.currentStepIndex ? Color.yellow.opacity(0.1) : Color.clear)
-                            .onTapGesture {
-                                navigationManager.currentStepIndex = index
-                                speechManager.speak(step.instruction)
-                            }
-                        }
+            // 상단 카드 (목적지 정보)
+            VStack(spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(navigationManager.routeDestination)
+                            .dynamicFont(size: 26, weight: .bold)
+                            .foregroundColor(.yellow)
+                        Text(navigationManager.routeOrigin)
+                            .dynamicFont(size: 14)
+                            .foregroundColor(.gray)
                     }
-                    .padding(.vertical)
+                    Spacer()
+                    // 소요 시간 뱃지
+                    Text(navigationManager.currentRouteDescription)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.yellow.opacity(0.1))
+                        .foregroundColor(.yellow)
+                        .cornerRadius(20)
+                        .font(.caption.bold())
                 }
             }
+            .padding(20)
+            .background(Color.white.opacity(0.03))
             
-            // 하단 조작 영역
-            VStack(spacing: 15) {
-                // 다음 단계 대형 버튼 (핵심)
+            // 안내 카드 (현재 단계)
+            ZStack {
+                if navigationManager.steps.isEmpty {
+                    ProgressView().tint(.yellow)
+                } else {
+                    let step = navigationManager.steps[navigationManager.currentStepIndex]
+                    
+                    VStack(spacing: 25) {
+                        // 현재 안내 지시어
+                        VStack(spacing: 15) {
+                            Image(systemName: step.type == .walk ? "figure.walk" : "bus.doubledecker.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.yellow)
+                            
+                            Text(step.instruction)
+                                .dynamicFont(size: 24, weight: .bold)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        
+                        if !step.detail.isEmpty {
+                            Text(step.detail)
+                                .dynamicFont(size: 16)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                    }
+                    .padding(30)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(30)
+                    .padding()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        speechManager.speak(step.instruction)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // 하단 조작 바 (세련된 다이얼로그 스타일)
+            HStack(spacing: 20) {
+                Button(action: {
+                    navigationManager.stopNavigation()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.title3.bold())
+                        .foregroundColor(.white)
+                        .frame(width: 60, height: 60)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel("안내 종료")
+                
                 Button(action: {
                     navigationManager.nextStep()
                     speechManager.speak(navigationManager.currentInstruction)
                 }) {
                     HStack {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.title)
-                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내 받기" : "안내 종료 (도착)")
-                            .dynamicFont(size: 24, weight: .bold)
+                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내" : "여정 종료")
+                            .dynamicFont(size: 20, weight: .bold)
+                        Image(systemName: "arrow.right")
                     }
-                    .padding(.vertical, 20)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 60)
                     .background(Color.yellow)
                     .foregroundColor(.black)
-                    .cornerRadius(20)
+                    .cornerRadius(30)
                 }
-                .accessibilityLabel("다음 단계 안내 버튼")
-                .accessibilityHint("현재 단계 안내를 완료하고 다음 단계 지침을 듣습니다.")
-                
-                // 안내 종료 버튼
-                Button(action: {
-                    navigationManager.stopNavigation()
-                }) {
-                    Text("안내 중단")
-                        .dynamicFont(size: 16, weight: .bold)
-                        .foregroundColor(.gray)
-                }
-                .padding(.bottom, 10)
+                .accessibilityLabel(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 단계로" : "안내 종료")
             }
-            .padding()
+            .padding(20)
             .background(Color.black)
         }
         .background(Color.black.ignoresSafeArea())
@@ -316,27 +328,22 @@ struct NavigationModeView: View {
         }
     }
     
-    // 전체 경로 개요 안내 (인지지도 형성을 위해 여정의 '뼈대'를 먼저 안내)
+    // 전체 경로 개요 안내 (핵심 정보 위주로 깔끔하게)
     private func announceOverview() {
-        let totalSteps = navigationManager.totalSteps
-        let transitStops = navigationManager.totalTransitStops
         let origin = navigationManager.routeOrigin
         let dest = navigationManager.routeDestination
-        
         let transitSteps = navigationManager.steps.filter { $0.type == StepType.board }
-        var structureSummary = ""
         
+        var summary = ""
         if !transitSteps.isEmpty {
             let lines = transitSteps.map { $0.action.replacingOccurrences(of: " 탑승", with: "") }
-            structureSummary = "이번 여정은 \(lines.joined(separator: "와 "))을(를) 이용하는 구조입니다."
+            summary = "\(lines.joined(separator: ", "))을 이용하는 경로입니다."
         } else {
-            structureSummary = "도보를 통한 주변 인지 위주의 경로입니다."
+            summary = "도보 중심의 경로입니다."
         }
         
-        // 인지지도 형성을 위한 전략적 요약
-        let overview = "\(origin)에서 \(dest)까지의 전체 플래닝을 마쳤습니다. \(structureSummary) 총 \(totalSteps)단계를 거치게 되며, 머릿속으로 전체 경로를 그려보실 수 있도록 주요 지점별로 안내해 드릴게요. 화면을 터치하면 첫 번째 단계부터 상세히 설명합니다."
-        
-        speechManager.speak(overview)
+        let message = "\(origin)에서 \(dest)로 가는 플래닝이 준비되었습니다. \(summary) 화면을 터치하면 상세 안내를 시작합니다."
+        speechManager.speak(message)
     }
 }
 
