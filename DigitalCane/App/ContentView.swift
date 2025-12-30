@@ -395,6 +395,25 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("디지털 지팡이 설정")) {
+                    VStack(alignment: .leading) {
+                        Text("기본 탐색 반경: \(Int(searchRadius))m")
+                            .dynamicFont(size: 18)
+                        Slider(value: $searchRadius, in: 20...500, step: 10)
+                            .accentColor(.yellow)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("탐색 반경 설정")
+                    .accessibilityValue("\(Int(searchRadius)) 미터")
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment:
+                            if searchRadius < 500 { searchRadius += 10 }
+                        case .decrement:
+                            if searchRadius > 20 { searchRadius -= 10 }
+                        default: break
+                        }
+                    }
+                }
                 
                 Section(header: Text("앱 정보")) {
                     HStack {
