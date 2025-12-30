@@ -39,7 +39,7 @@ struct NearbyExploreView: View {
                 
                 if isLoading {
                     VStack {
-                        ProgressView("장소 정보를 불러오는 중입니다")
+                        ProgressView("장소 정보를 불러오고 있습니다")
                             .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
                             .foregroundColor(.yellow)
                     }
@@ -49,7 +49,7 @@ struct NearbyExploreView: View {
                     ScanningRadarView()
                         .frame(height: 180)
                         .overlay(
-                            Text("휴대폰을 부채질하듯\n천천히 돌려주세요")
+                            Text("휴대폰을 부채질하듯\n천천히 좌우로 돌려주세요")
                                 .foregroundColor(.white)
                                 .font(.headline)
                                 .multilineTextAlignment(.center)
@@ -111,7 +111,7 @@ struct NearbyExploreView: View {
                 
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
-                    Text("디지털케인이 활성화되었습니다.\n휴대폰을 천천히 돌려보세요.")
+                    Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 천천히 돌려 주변을 탐색하세요.")
                         .font(.headline)
                         .foregroundColor(.yellow)
                         .multilineTextAlignment(.center)

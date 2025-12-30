@@ -143,7 +143,7 @@ struct VoiceCommandModeView: View {
                 .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다" : "마이크 버튼")
                 
                 // 안내 텍스트
-                Text(speechManager.isRecording ? "듣고 있어요..." : "화면을 누른 상태로\n목적지를 말씀해주세요")
+                Text(speechManager.isRecording ? "듣고 있습니다..." : "화면을 누른 채로\n목적지를 말씀해 주세요")
                     .dynamicFont(size: 28, weight: .bold)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
@@ -219,7 +219,7 @@ struct VoiceCommandModeView: View {
                     onCommit(speechManager.transcript)
                 }
             } else {
-                speechManager.speak("목소리가 인식되지 않았습니다. 다시 시도해주세요.")
+                speechManager.speak("목소리를 인식하지 못했습니다. 다시 말씀해 주세요.")
             }
         }
     }
@@ -328,7 +328,7 @@ struct NavigationModeView: View {
             }) {
                 HStack {
                     Image(systemName: "mic.fill")
-                    Text("새로운 검색 / 안내 종료")
+                    Text("새로운 검색 및 안내 종료")
                         .dynamicFont(size: 20, weight: .bold) // 동적 폰트
                 }
                 .padding(.horizontal, 20)
@@ -503,7 +503,7 @@ struct HelpView: View {
                     if let address = locationManager.currentAddress {
                         speechManager.speak("현재 위치는 \(address)입니다.")
                     } else {
-                        speechManager.speak("현재 위치 정보를 확인 중입니다.")
+                        speechManager.speak("현재 위치 정보를 확인하고 있습니다.")
                     }
                 }) {
                     HStack {
