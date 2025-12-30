@@ -82,8 +82,8 @@ struct ContentView: View {
             case 0: // 디지털케인 (주변 탐색)
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
             case 1: // 경로 안내
-                 // 탭 진입 시 이전 경로 정보 유지 (삭제함: navigationManager.stopNavigation())
-                 break
+                 // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
+                 navigationManager.stopNavigation()
             case 2: // 도움 요청 (SOS)
                  NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
             default:
@@ -260,66 +260,80 @@ struct NavigationModeView: View {
             .background(Color.white.opacity(0.03))
             
             // 단계별 안내 리스트 (인지지도 형성에 최적화된 리스트 방식)
-            ScrollView {
-                if navigationManager.steps.isEmpty {
-                    ProgressView().tint(.yellow).padding()
-                } else {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(navigationManager.steps.enumerated()), id: \.offset) { index, step in
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(alignment: .top, spacing: 15) {
-                                    // 단계 번호 표시
-                                    Text("\(index + 1)")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(index == navigationManager.currentStepIndex ? .black : .yellow)
-                                        .frame(width: 24, height: 24)
-                                        .background(index == navigationManager.currentStepIndex ? Color.yellow : Color.clear)
-                                        .overlay(Circle().stroke(Color.yellow, lineWidth: 1))
-                                        .clipShape(Circle())
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(step.instruction)
-                                            .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 18, 
-                                                        weight: index == navigationManager.currentStepIndex ? .bold : .medium)
-                                            .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if navigationManager.steps.isEmpty {
+                        ProgressView().tint(.yellow).padding()
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(navigationManager.steps.enumerated()), id: \.offset) { index, step in
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack(alignment: .top, spacing: 15) {
+                                        // 단계 번호 표시
+                                        Text("\(index + 1)")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(index == navigationManager.currentStepIndex ? .black : .yellow)
+                                            .frame(width: 24, height: 24)
+                                            .background(index == navigationManager.currentStepIndex ? Color.yellow : Color.clear)
+                                            .overlay(Circle().stroke(Color.yellow, lineWidth: 1))
+                                            .clipShape(Circle())
                                         
-                                        if !step.detail.isEmpty {
-                                            Text(step.detail)
-                                                .dynamicFont(size: 15)
-                                                .foregroundColor(index == navigationManager.currentStepIndex ? .yellow.opacity(0.8) : .gray.opacity(0.6))
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(step.instruction)
+                                                .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 18, 
+                                                            weight: index == navigationManager.currentStepIndex ? .bold : .medium)
+                                                .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
+                                            
+                                            if !step.detail.isEmpty {
+                                                Text(step.detail)
+                                                    .dynamicFont(size: 15)
+                                                    .foregroundColor(index == navigationManager.currentStepIndex ? .yellow.opacity(0.8) : .gray.opacity(0.6))
+                                            }
                                         }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: step.type == .walk ? "figure.walk" : "bus.fill")
+                                            .foregroundColor(index == navigationManager.currentStepIndex ? .yellow : .gray.opacity(0.5))
+                                    }
+                                    .padding()
+                                    .background(index == navigationManager.currentStepIndex ? Color.white.opacity(0.08) : Color.clear)
+                                    .onTapGesture {
+                                        navigationManager.currentStepIndex = index
+                                        speechManager.speak(step.instruction)
                                     }
                                     
-                                    Spacer()
-                                    
-                                    Image(systemName: step.type == .walk ? "figure.walk" : "bus.fill")
-                                        .foregroundColor(index == navigationManager.currentStepIndex ? .yellow : .gray.opacity(0.5))
+                                    Divider().background(Color.gray.opacity(0.5))
                                 }
+                                .id(index) // 스크롤 타겟 ID 설정
                                 .padding()
-                                .background(index == navigationManager.currentStepIndex ? Color.white.opacity(0.08) : Color.clear)
+                                .background(Color.black)
                                 .onTapGesture {
-                                    navigationManager.currentStepIndex = index
-                                    speechManager.speak(step.instruction)
+                                    // 일반 터치(저시력/비VoiceOver) 사용자를 위한 음성 안내
+                                    let content = "단계 \(index + 1). \(step.instruction). \(step.detail)"
+                                    SoundManager.shared.play(.click)
+                                    speechManager.speak(content)
                                 }
-                                
-                                Divider().background(Color.gray.opacity(0.5))
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel("단계 \(index + 1): \(step.instruction)")
+                                .accessibilityHint(step.detail)
                             }
-                            .padding()
-                            .background(Color.black)
-                            .onTapGesture {
-                                // 일반 터치(저시력/비VoiceOver) 사용자를 위한 음성 안내
-                                let content = "단계 \(index + 1). \(step.instruction). \(step.detail)"
-                                SoundManager.shared.play(.click)
-                                speechManager.speak(content)
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel("단계 \(index + 1): \(step.instruction)")
-                            .accessibilityHint(step.detail)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onAppear {
+                    // 화면 진입 시 현재 단계가 있다면 해당 위치로 스크롤
+                    if navigationManager.currentStepIndex > 0 {
+                        proxy.scrollTo(navigationManager.currentStepIndex, anchor: .top)
+                    }
+                }
+                .onChange(of: navigationManager.currentStepIndex) { newIndex in
+                    withAnimation {
+                        proxy.scrollTo(newIndex, anchor: .top)
+                    }
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
             // 안내 종료 및 새로운 검색 버튼
             Button(action: {
