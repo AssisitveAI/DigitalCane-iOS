@@ -794,14 +794,11 @@ class APIService {
                              distance: distance)
         }
         
-        // 도보/기타
-        return RouteStep(type: .walk,
-                         instruction: instruction,
-                         detail: "\(duration). \(distance) 이동.",
-                         action: "도보",
-                         stopCount: 0,
-                         duration: duration,
-                         distance: distance)
+        }
+        
+        // 도보/기타 단계는 제외 (사용자 요청: 번거로운 도보 안내 생략)
+        // 예전 방식처럼 대중교통 탑승 정보만 간결하게 제공
+        return nil
     }
 }
 
