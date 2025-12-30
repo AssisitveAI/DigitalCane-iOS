@@ -222,30 +222,20 @@ struct NavigationModeView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 상단 카드 (목적지 정보)
-            VStack(spacing: 10) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(navigationManager.routeDestination)
-                            .dynamicFont(size: 26, weight: .bold)
-                            .foregroundColor(.yellow)
-                        Text(navigationManager.routeOrigin)
-                            .dynamicFont(size: 14)
-                            .foregroundColor(.gray)
-                    }
-                    Spacer()
-                    // 소요 시간 뱃지
-                    Text(navigationManager.currentRouteDescription)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.yellow.opacity(0.1))
-                        .foregroundColor(.yellow)
-                        .cornerRadius(20)
-                        .font(.caption.bold())
-                }
+            // 상단 제목 (심플하고 명확하게)
+            HStack {
+                Text(navigationManager.routeDestination)
+                    .dynamicFont(size: 28, weight: .bold)
+                    .foregroundColor(.yellow)
+                Spacer()
+                Text("이동 중")
+                    .font(.caption.bold())
+                    .foregroundColor(.gray)
             }
-            .padding(20)
-            .background(Color.white.opacity(0.03))
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 10)
+            .background(Color.black)
             
             // 단계별 안내 리스트 (인지지도 형성에 최적화된 리스트 방식)
             ScrollView {
@@ -301,38 +291,39 @@ struct NavigationModeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // 하단 조작 바 (세련된 다이얼로그 스타일)
-            HStack(spacing: 20) {
-                Button(action: {
-                    navigationManager.stopNavigation()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.title3.bold())
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: 60)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                }
-                .accessibilityLabel("안내 종료")
+            // 하단 조작 영역 (도움 중단 및 다음 단계)
+            VStack(spacing: 15) {
+                Divider().background(Color.white.opacity(0.2))
                 
-                Button(action: {
-                    navigationManager.nextStep()
-                    speechManager.speak(navigationManager.currentInstruction)
-                }) {
-                    HStack {
-                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내" : "여정 종료")
-                            .dynamicFont(size: 20, weight: .bold)
-                        Image(systemName: "arrow.right")
+                HStack(spacing: 20) {
+                    Button(action: {
+                        navigationManager.stopNavigation()
+                    }) {
+                        Text("안내 중단")
+                            .dynamicFont(size: 18, weight: .bold)
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.white.opacity(0.05))
+                            .cornerRadius(12)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 60)
-                    .background(Color.yellow)
-                    .foregroundColor(.black)
-                    .cornerRadius(30)
+                    
+                    Button(action: {
+                        navigationManager.nextStep()
+                        speechManager.speak(navigationManager.currentInstruction)
+                    }) {
+                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내" : "도착 완료")
+                            .dynamicFont(size: 20, weight: .bold)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.yellow)
+                            .cornerRadius(12)
+                    }
                 }
-                .accessibilityLabel(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 단계로" : "안내 종료")
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(20)
             .background(Color.black)
         }
         .background(Color.black.ignoresSafeArea())
