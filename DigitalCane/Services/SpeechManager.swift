@@ -48,14 +48,17 @@ class SpeechManager: ObservableObject {
         utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         utterance.rate = 0.5
         
-        // 오디오 세션 설정 (재생 모드 -> playAndRecord로 통일하여 전환 시 크래시 방지)
+        // 오디오 세션 설정
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            // 녹음과 재생을 빈번하게 오가므로 세션 카테고리를 고정
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            // .voiceChat 모드가 시스템 안정성이 높음
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker])
+            // 세션이 이미 활성화되어 있는지 확인하거나, 안전하게 활성화 시도
+            if !audioSession.isOtherAudioPlaying {
+                try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            }
         } catch {
-            print("Audio Session Setup Error in Speak: \(error)")
+            print("⚠️ Audio Session Setup Error in Speak (Safe): \(error.localizedDescription)")
         }
         
         synthesizer.speak(utterance)

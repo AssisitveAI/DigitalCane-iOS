@@ -324,11 +324,6 @@ class APIService {
                     // 총 소요 시간: localizedValues 우선 사용 (형식: "1시간 4분") -> 없으면 초 단위 계산
                     var totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text
                     
-                    if totalDuration == nil {
-                        let durationSeconds = (Int(leg.duration?.replacingOccurrences(of: "s", with: "") ?? "0") ?? 0)
-            totalDuration = "약 \(durationSeconds / 60)분"
-                    }
-                    
                     print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration ?? "")")
                     let routeData = RouteData(steps: steps, totalDuration: totalDuration ?? "")
                     completion(routeData)
@@ -395,9 +390,43 @@ class APIService {
     /// MapKit 범용 검색 폴백 함수 (카테고리 검색으로 데이터 부족 극복)
     private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
         let request = MKLocalSearch.Request()
+        request.region = region
         
-        // 1. 한국 MapKit에서 가장 데이터가 많은 카테고리들 위주로 필터링
-        // 단순 텍스트 쿼리보다 카테고리 필터가 훨씬 많은 결과를 반환함 (Error 4 방지)
+        // 1. 사용자 의견 반영: 필터를 비운 '전체 검색' 시도 (가장 관대함)
+        // 한국에서는 카테고리보다 빈 쿼리나 단순 점(.)이 더 잘 작동할 때가 있음
+        request.naturalLanguageQuery = "주변" 
+        
+        if #available(iOS 13.0, *) {
+            // 필터를 명시적으로 nil로 설정하여 제약 해제
+            request.pointOfInterestFilter = nil
+            request.resultTypes = .pointOfInterest
+        }
+        
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            if let error = error {
+                print("⚠️ Wildcard search failed, trying categorical fallback: \(error.localizedDescription)")
+                self.performCategoricalFallbackSearch(region: region, completion: completion)
+                return
+            }
+            
+            guard let response = response, !response.mapItems.isEmpty else {
+                self.performCategoricalFallbackSearch(region: region, completion: completion)
+                return
+            }
+            
+            let places = self.mapItemsToPlaces(response.mapItems)
+            print("✅ [Wildcard Search] \(places.count)개 장소 발견")
+            completion(places, nil)
+        }
+    }
+    
+    /// 최종 보루: 명시적 카테고리 기반 검색
+    private func performCategoricalFallbackSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
+        let request = MKLocalSearch.Request()
+        request.region = region
+        request.naturalLanguageQuery = "장소"
+        
         if #available(iOS 13.0, *) {
             request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
                 .restaurant, .cafe, .store, .publicTransport, .hospital, .pharmacy, .bank, .atm, .postOffice, .gasStation
@@ -405,34 +434,28 @@ class APIService {
             request.resultTypes = .pointOfInterest
         }
         
-        // 2. 키워드를 하나로 고정하지 않고, 빈 쿼리 대신 범용적인 "장소" 또는 "Place" 사용
-        request.naturalLanguageQuery = "장소" 
-        request.region = region
-        
         let search = MKLocalSearch(request: request)
         search.start { response, error in
-            if let error = error {
-                print("❌ Native MapKit completely failed in this region: \(error.localizedDescription)")
-                completion(nil, error.localizedDescription)
+            guard let response = response, error == nil else {
+                print("❌ Native MapKit completely failed in this region: \(error?.localizedDescription ?? "Empty")")
+                completion(nil, error?.localizedDescription)
                 return
             }
             
-            guard let response = response else {
-                completion([], nil)
-                return
-            }
-            
-            let places = response.mapItems.map { item -> Place in
-                Place(
-                    name: item.name ?? "알 수 없는 장소",
-                    address: item.placemark.title ?? "",
-                    types: [], 
-                    coordinate: item.placemark.coordinate
-                )
-            }
-            
-            print("✅ [MapKit Category Search] \(places.count)개 장소 발견")
+            let places = self.mapItemsToPlaces(response.mapItems)
+            print("✅ [Categorical Fallback] \(places.count)개 장소 발견")
             completion(places, nil)
+        }
+    }
+    
+    private func mapItemsToPlaces(_ items: [MKMapItem]) -> [Place] {
+        return items.map { item in
+            Place(
+                name: item.name ?? "알 수 없는 장소",
+                address: item.placemark.title ?? "",
+                types: [], 
+                coordinate: item.placemark.coordinate
+            )
         }
     }
     
