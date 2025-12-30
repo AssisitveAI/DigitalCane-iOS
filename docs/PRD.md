@@ -33,18 +33,31 @@
 - **자동 활성화**: 앱 실행 및 위치 수신 즉시 탐색 모드 자동 시작 (Zero-touch Start).
 - **유연한 반경 설정**: 설정 탭 및 메인 UI에서 탐색 범위(20m~500m) 동기화 조절.
 
-### 3.3. 접근성 및 편의성 (Accessibility & UX)
+### 3.3. 비상 상황 대응 (SOS & Safety)
+- **전용 도움요청 탭 (SOS Hub)**:
+  - 복잡한 탐색 화면에서 분리되어 긴급 상황 시 즉각 접근 가능한 독립된 탭 제공.
+- **실시간 역지오코딩 (Real-time Reverse Geocoding)**:
+  - 사용자의 좌표를 상시 한글 주소로 변환하여 표시.
+  - **Tap-to-Speak**: 주소 영역 터치 시 현재 위치를 상세 음성 안내.
+- **가변적 비상 알림 (Flexible Emergency Alerting)**:
+  - 설정된 보호자 외에도 **현장 연락처(지인, 가게 번호 등)를 즉석에서 입력**하여 위치 공유 가능.
+  - SMS 발송 시 현재 위치의 주소와 구글 지도 상세 링크를 자동 첨부.
+- **원터치 비상 전화**: 입력된 번호로 즉시 전화를 걸 수 있는 대형 직관 버튼 제공.
+
+### 3.4. 접근성 및 편의성 (Accessibility & UX)
+- **Hardware-specific Optimization**:
+  - **Anchored Bottom Tab Bar**: 홈 버튼이 있는 iPhone SE와 홈 인디케이터가 있는 최신 기기 모두에서 바닥에 완벽히 고정되는 커스텀 탭바 구현.
+  - **Safe-Content ScrollView**: 모든 화면에 ScrollView를 적용하여 큰 글자 크기에서도 정보가 잘리지 않도록 보장.
 - **High Contrast & Dynamic UI**: 
   - 저시력 사용자를 위한 고대비(Yellow on Black) 테마.
   - **글자 크기 조절**: 설정 탭에서 최소 0.8배에서 최대 2.0배까지 글자 크기 동적 조절 가능 (Large Title 지원).
 - **VoiceOver Optimization**: 
-  - **Action-First Guidance**: "단계 1"보다 "버스 탑승" 처럼 행동 지침을 먼저 읽어주어 인지 속도 향상.
-  - **Direct Touch**: 마이크 버튼 등 누르고 있어야 하는 UI에서 VoiceOver 제스처를 우회하여 직관적 조작 지원.
-  - **Button Traits**: 이미지가 아닌 명시적 버튼 속성 부여로 명확한 안내.
+  - **Action-First Guidance**: 행동 지침 우선 안내.
+  - **Direct Touch**: 마이크 버튼 등 특수 UI 제스처 우회 지원.
 - **Multi-sensory Feedback**:
-  - **Haptics**: 화면 전환, 버튼 클릭, 방향 조준 시 미세하고 다양한 진동 피드백.
-  - **Sound**: 화면 터치 시 상세 내용 음성 안내(Touch-to-Speak) 지원.
-- **통합 설정(Integration)**: 경로 탐색 옵션, 탐색 반경, 글자 크기 등을 한 곳에서 관리.
+  - **Tab Switch Refresh**: '디지털케인' 탭 재터치 시 주변 장소 새로고침 통지(Notification) 발송 및 리로딩.
+  - **Speech Interruption**: 탭 전환 시 중복 안내 방지를 위해 기존 음성 자동 중단.
+  - **Haptics & Sound**: 화면 터치 및 주요 이벤트 발생 시 풍부한 피드백 제공.
 
 ## 4. 기술 아키텍처 (Technical Architecture)
 - **Client**: iOS (SwiftUI, MVVM 패턴)
