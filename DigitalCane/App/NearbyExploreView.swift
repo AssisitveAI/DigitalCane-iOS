@@ -48,13 +48,7 @@ struct NearbyExploreView: View {
                     // 스캔 모드 UI (시각적 레이더)
                     ScanningRadarView()
                         .frame(height: 180)
-                        .overlay(
-                            Text("휴대폰을 부채질하듯\n천천히 좌우로 돌려주세요")
-                                .foregroundColor(.white)
-                                .font(.headline)
-                                .multilineTextAlignment(.center)
-                                .padding(.top, 180)
-                        )
+                        .padding(.bottom, 20)
                 } else {
                     // 대기 모드 UI
                     VStack(spacing: 20) {
