@@ -335,9 +335,48 @@ class APIService {
         }.resume()
     }
     
+    /// 애플 지도(MapKit)와 구글 지도(Google Places)를 결합한 하이브리드 주변 검색
+    func fetchNearbyPlacesHybrid(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
+        // 1. 먼저 애플 네이티브로 검색 시도 (무료/빠름)
+        self.fetchNearbyPlacesMapKit(latitude: latitude, longitude: longitude, radius: radius) { nativePlaces, error in
+            let foundCount = nativePlaces?.count ?? 0
+            
+            // 2. 결과가 충분하면(5개 이상) 즉시 반환
+            if foundCount >= 5 {
+                print("✅ [Hybrid] Apple Native로 충분한 정보(\(foundCount)개) 확보")
+                completion(nativePlaces, nil)
+                return
+            }
+            
+            // 3. 결과가 부족하면 구글 플레이스 API로 보강 (정밀 정보)
+            print("⚠️ [Hybrid] Apple 정보 부족(\(foundCount)개), 구글 API로 보강합니다...")
+            self.fetchNearbyPlaces(latitude: latitude, longitude: longitude, radius: radius) { googlePlaces, googleError in
+                guard let googlePlaces = googlePlaces else {
+                    // 구글도 실패하면 애플 결과라도 반환
+                    completion(nativePlaces, error)
+                    return
+                }
+                
+                // 두 결과 합치고 중복 제거
+                var combined = nativePlaces ?? []
+                let nativeNames = Set(combined.map { $0.name })
+                
+                for gp in googlePlaces {
+                    if !nativeNames.contains(gp.name) {
+                        combined.append(gp)
+                    }
+                }
+                
+                print("✅ [Hybrid] 통합 결과 \(combined.count)개 반환 (Apple + Google 보강)")
+                completion(combined, nil)
+            }
+        }
+    }
+    
     // MARK: - 3. Nearby Places Search (Native MapKit Version)
     /// 애플 기본 프레임워크(MapKit)를 사용한 주변 장소 검색
     func fetchNearbyPlacesMapKit(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
+        // ... (기존 구현 유지)
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         
         // 검색 범위 설정

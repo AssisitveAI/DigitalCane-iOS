@@ -184,19 +184,18 @@ struct NearbyExploreView: View {
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
         
-        // 애플 네이티브 MapKit 기반 주변 장소 검색 (무료, 개인정보 보호, 한국 최적화)
-        APIService.shared.fetchNearbyPlacesMapKit(
+        APIService.shared.fetchNearbyPlacesHybrid(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
             radius: searchRadius
-        ) { fetchedPlaces, errorMsg in
+        ) { fetchedPlaces, error in
             DispatchQueue.main.async {
                 self.isLoading = false
                 
                 if let fetchedPlaces = fetchedPlaces {
                     self.places = fetchedPlaces
                     
-                    print("✅ [Native MapKit] 주변 장소 \(fetchedPlaces.count)개 검색됨")
+                    print("✅ [Hybrid] 주변 장소 \(fetchedPlaces.count)개 검색됨")
                     if !fetchedPlaces.isEmpty {
                         // 데이터 수신 즉시 자동 시작
                         self.startScanning()
