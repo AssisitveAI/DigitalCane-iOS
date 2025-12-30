@@ -222,10 +222,32 @@ struct NearbyExploreView: View {
                 guard self.isVisible else { return }
                 
                 if let fetchedPlaces = fetchedPlaces {
-                    self.places = fetchedPlaces
+                    // 현재 있는 건물(장소) 제외 로직 추가
+                    let currentBuilding = self.locationManager.currentBuildingName?.replacingOccurrences(of: " ", with: "") ?? ""
                     
-                    print("✅ [Hybrid] 주변 장소 \(fetchedPlaces.count)개 검색됨")
-                    if !fetchedPlaces.isEmpty {
+                    let filteredPlaces = fetchedPlaces.filter { place in
+                        let placeName = place.name.replacingOccurrences(of: " ", with: "")
+                        
+                        // 1. 이름이 완전히 같거나 포함되는 경우 제외
+                        if !currentBuilding.isEmpty && (placeName.contains(currentBuilding) || currentBuilding.contains(placeName)) {
+                            print("🚫 [Filter] 현재 건물 제외: \(place.name)")
+                            return false
+                        }
+                        
+                        // 2. 거리가 지나치게 가까운(예: 5m 이내) 경우 본인 위치로 간주하여 제외 (옵션)
+                        let distance = location.distance(from: CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude))
+                        if distance < 5.0 {
+                            print("🚫 [Filter] 너무 가까운 장소 제외(본인 위치 가능성): \(place.name) (\(Int(distance))m)")
+                            return false
+                        }
+                        
+                        return true
+                    }
+                    
+                    self.places = filteredPlaces
+                    
+                    print("✅ [Hybrid] 주변 장소 \(filteredPlaces.count)개 검색됨 (원본: \(fetchedPlaces.count)개)")
+                    if !filteredPlaces.isEmpty {
                         // 데이터 수신 즉시 자동 시작
                         self.startScanning()
                         

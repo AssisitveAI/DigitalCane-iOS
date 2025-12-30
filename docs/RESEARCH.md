@@ -17,8 +17,9 @@
 - **Solution**: 'Digital Cane Mode'는 사용자가 스마트폰으로 직접 가리키는 방향(**Heading ±10°**)에 있는 대상만을 필터링한다. 이는 시각장애인이 소리 나는 방향으로 고개를 돌리는 자연스러운 행동 양식(Natural UI)을 모방한 것이다.
 - **Algorithm**:
   1. 기기의 `True Heading`과 목표물까지의 `Bearing` 간 델타($\Delta$) 계산.
-  2. $\Delta < 10^{\circ}$ 조건 만족 시에만 `Heavy Haptic` 및 `TTS` 출력.
-  3. 최소 각도(Nearest-Angle) 우선 알고리즘으로 다중 중첩 장소 중 가장 정확한 대상을 선별.
+  2. **Self-Point Exclusion**: 역지오코딩을 통해 파악된 '현재 건물명'과 일치하거나 5m 이내의 초근접 장소는 중의성 제거를 위해 안내 목록에서 필터링.
+  3. $\Delta < 10^{\circ}$ 조건 만족 시에만 `Heavy Haptic` 및 `TTS` 출력.
+  4. 최소 각도(Nearest-Angle) 우선 알고리즘으로 다중 중첩 장소 중 가장 정확한 대상을 선별.
 
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.
