@@ -211,8 +211,9 @@ class APIService {
                     // 4. MKRoute → RouteData 변환
                     let steps = route.steps.compactMap { self.convertStepMapKit($0) }
                     let totalDuration = "\(Int(route.expectedTravelTime))s"
+                    let totalDistance = "\(Int(route.distance))m"
                     
-                    completion(RouteData(steps: steps, totalDuration: totalDuration))
+                    completion(RouteData(steps: steps, totalDuration: totalDuration, totalDistance: totalDistance))
                 }
             }
         }
@@ -686,7 +687,9 @@ class APIService {
             instruction: instruction,
             detail: detail,
             action: action,
-            stopCount: 0  // MapKit은 정류장 수를 직접 제공하지 않음
+            stopCount: 0,
+            duration: "", // MapKit 단계별 시간 정보 부재
+            distance: "\(distance)m"
         )
     }
 
@@ -778,13 +781,13 @@ class APIService {
             // 예: "서울역에서 143번 버스를 타고 고속터미널 방면으로 5개 정류장 이동 후 신사역에서 내립니다."
             instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 내립니다."
             
-            // 거리 정보 폴백 (localizedValues.distance)
+            // 거리 정보 폴백
             let distanceText = gStep.localizedValues?.distance?.text ?? ""
-            let detailInfo = !distanceText.isEmpty ? "\(detail). \(distanceText) 이동." : "\(detail)."
+            let detailInfo = !distanceText.isEmpty ? "\(distanceText) 이동" : ""
             
             return RouteStep(type: .board,
                              instruction: instruction,
-                             detail: "\(duration). \(distance) 이동.",
+                             detail: detailInfo, // 거리 정보 상세 표시
                              action: action,
                              stopCount: stopCount,
                              duration: duration,
