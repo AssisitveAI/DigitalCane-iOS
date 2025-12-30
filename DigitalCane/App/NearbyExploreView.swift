@@ -20,72 +20,69 @@ struct NearbyExploreView: View {
     let hapticGenerator = UIImpactFeedbackGenerator(style: .heavy)
     
     var body: some View {
-        VStack {
-            // 상단 헤더
-            Text("디지털 지팡이")
-                .font(.largeTitle)
-                .bold()
-                .foregroundColor(.yellow)
-                .padding(.top, 50)
-                .accessibilityAddTraits(.isHeader)
-            
-            // 반경 설정 (항상 표시: UX 개선)
-            radiusControlView
-            
-            Spacer()
-            
-            if isLoading {
-                ProgressView("주변 정보 갱신 중...")
-                    .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 25) {
+                // 상단 헤더
+                Text("디지털 지팡이")
+                    .font(.largeTitle)
+                    .bold()
                     .foregroundColor(.yellow)
-                    .scaleEffect(1.5)
-            } else if isScanningMode {
-                // 스캔 모드 UI (시각적 레이더)
-                ScanningRadarView()
-                    .overlay(
-                        Text("휴대폰을 부채질하듯\n천천히 돌려주세요")
-                            .foregroundColor(.white)
-                            .font(.headline)
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 220)
-                    )
-            } else {
-                // 대기 모드 UI
-                VStack(spacing: 20) {
-                    Image(systemName: "figure.walk.circle.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 120)
-                        .foregroundColor(.gray)
-                        .accessibilityHidden(true)
-                    
-                    Text(places.isEmpty ? "주변에 검색된 장소가 없습니다." : "준비됨: \(places.count)개의 장소")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .bold()
-                    
-                    if !places.isEmpty {
-                        Text("아래 버튼을 눌러 지팡이 모드를 켜세요")
-                            .foregroundColor(.gray)
-                            .font(.caption)
+                    .padding(.top, 20)
+                    .accessibilityAddTraits(.isHeader)
+                
+                // 반경 설정
+                radiusControlView
+                    .padding(.horizontal)
+                
+                if isLoading {
+                    VStack {
+                        ProgressView("장소 정보를 불러오는 중입니다")
+                            .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
+                            .foregroundColor(.yellow)
                     }
+                    .frame(height: 150)
+                } else if isScanningMode {
+                    // 스캔 모드 UI (시각적 레이더)
+                    ScanningRadarView()
+                        .frame(height: 180)
+                        .overlay(
+                            Text("휴대폰을 부채질하듯\n천천히 돌려주세요")
+                                .foregroundColor(.white)
+                                .font(.headline)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, 180)
+                        )
+                } else {
+                    // 대기 모드 UI
+                    VStack(spacing: 20) {
+                        Image(systemName: "figure.walk.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100)
+                            .foregroundColor(.gray)
+                        
+                        Text(places.isEmpty ? "주변에 검색된 장소가 없습니다." : "준비됨: \(places.count)개의 장소")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .bold()
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 20)
                 }
-                .padding()
+                
+                // 버튼 삭제 및 자동 활성화 안내
+                if !places.isEmpty && !isLoading {
+                    Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 천천히 돌려보세요.")
+                        .font(.headline)
+                        .foregroundColor(.yellow)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                        .background(Color.yellow.opacity(0.15))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                }
             }
-            
-            Spacer()
-            
-            // 버튼 삭제 및 자동 활성화 안내
-            if !places.isEmpty && !isLoading {
-                Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 부채질하듯 좌우로 천천히 돌려보세요.")
-                    .font(.headline)
-                    .foregroundColor(.yellow)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                    .accessibilityHint("현재 반경 내의 장소를 나침반으로 탐색 중입니다.")
-            }
-            
-            Spacer()
+            .padding(.bottom, 30) // 탭바 위쪽 여백 확보
         }
         .background(Color.black)
         .onAppear {

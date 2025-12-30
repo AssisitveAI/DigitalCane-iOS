@@ -7,49 +7,82 @@ struct ContentView: View {
     @StateObject private var locationManager = LocationManager()
     @State private var selectedTab = 0
     
+    init() {
+        // Force the tab bar to be opaque and anchored at the bottom
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .black
+        
+        // Standard (when docked)
+        UITabBar.appearance().standardAppearance = appearance
+        // ScrollEdge (when content matches bottom edge)
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        
+        // Remove transparency and floating appearance
+        UITabBar.appearance().isTranslucent = false
+    }
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Tab 1: 디지털 지팡이
-            NearbyExploreView()
-                .tabItem {
-                    Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
-                }
-                .tag(0)
-            
-            // Tab 2: 경로 안내
-            VStack {
-                if navigationManager.isNavigating {
-                   NavigationModeView()
-                } else {
-                   VoiceCommandModeView(onCommit: { text in
-                       navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
-                           speechManager.speak(errorMessage)
-                       })
-                   })
+        VStack(spacing: 0) {
+            // Main Content Area
+            ZStack {
+                switch selectedTab {
+                case 0:
+                    NearbyExploreView()
+                case 1:
+                    VStack {
+                        if navigationManager.isNavigating {
+                           NavigationModeView()
+                        } else {
+                           VoiceCommandModeView(onCommit: { text in
+                               navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
+                                   speechManager.speak(errorMessage)
+                               })
+                           })
+                        }
+                    }
+                case 2:
+                    SettingsView()
+                default:
+                    EmptyView()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Custom Anchored Tab Bar (Optimized for iPhone SE)
+            HStack(spacing: 0) {
+                tabButton(title: "지팡이", icon: "magnifyingglass.circle.fill", index: 0)
+                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
+                tabButton(title: "설정", icon: "gearshape.fill", index: 2)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 10) // SE has no home indicator, keep it slim
             .background(Color.black)
-            .tabItem {
-                Label("경로 안내", systemImage: "bus.fill")
-            }
-            .tag(1)
-            
-            // Tab 3: 설정
-            SettingsView()
-                .tabItem {
-                    Label("설정", systemImage: "gearshape.fill")
-                }
-                .tag(2)
+            .shadow(color: .white.opacity(0.1), radius: 1, x: 0, y: -1)
         }
-        // iOS 16+ 표준: 탭바 배경을 검은색, 불투명, 항상 보이게 강제 설정
-        .toolbarBackground(.black, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        .background(Color.black.ignoresSafeArea())
         .accentColor(.yellow)
         .onChange(of: selectedTab) { _ in
             speechManager.stopSpeaking()
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
         }
+    }
+    
+    // Helper view for Custom Tab Buttons
+    private func tabButton(title: String, icon: String, index: Int) -> some View {
+        Button(action: { selectedTab = index }) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                Text(title)
+                    .font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundColor(selectedTab == index ? .yellow : .gray)
+        }
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selectedTab == index ? [.isSelected] : [])
     }
 }
 
@@ -62,41 +95,48 @@ struct VoiceCommandModeView: View {
     @State private var isTouching = false
     
     var body: some View {
-        VStack(spacing: 40) {
-            Spacer()
-            
-            // 시각적 피드백 (아이콘)
-            Image(systemName: speechManager.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 150, height: 150)
-                .foregroundColor(speechManager.isRecording ? .red : .yellow)
-                // VoiceOver 사용자를 위한 힌트 (VoiceOver는 드래그 제스처보다 이중 탭/매직 탭 사용 권장)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityRemoveTraits(.isImage)
-                .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 전송됩니다." : "마이크 버튼. 누르고 있으면 말하기, 떼면 전송")
-                .accessibilityHint("이 영역은 다이렉트 터치를 지원합니다. VoiceOver가 켜져 있어도 화면을 곧바로 길게 누르고 말한 뒤 손을 떼면 전송됩니다. 또는 두 손가락으로 두 번 탭하여(매직 탭) 시작/종료할 수도 있습니다.")
-            
-            // 텍스트 안내
-            Text(speechManager.isRecording ? "듣고 있어요..." : "화면을 누른 상태로\n목적지를 말해주세요")
-                .dynamicFont(size: 30, weight: .bold) // 동적 폰트 적용
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .padding()
-            
-            // 인식된 텍스트 실시간 표시
-            if !speechManager.transcript.isEmpty {
-                Text("인식됨: \"\(speechManager.transcript)\"")
-                    .dynamicFont(size: 24) // 동적 폰트 적용
-                    .foregroundColor(.yellow)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 30) {
+                // 시각적 피드백 (아이콘)
+                Image(systemName: speechManager.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 140, height: 140)
+                    .foregroundColor(speechManager.isRecording ? .red : .yellow)
+                    .padding(.top, 40)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityRemoveTraits(.isImage)
+                    .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 전송됩니다." : "마이크 버튼. 누르고 있으면 말하기, 떼면 전송")
+                
+                // 텍스트 안내
+                Text(speechManager.isRecording ? "듣고 있어요..." : "화면을 누른 상태로\n목적지를 말해주세요")
+                    .dynamicFont(size: 28, weight: .bold)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                // 인식된 텍스트 실시간 표시
+                if !speechManager.transcript.isEmpty {
+                    VStack(spacing: 10) {
+                        Text("인식 중...")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Text("\"\(speechManager.transcript)\"")
+                            .dynamicFont(size: 22)
+                            .foregroundColor(.yellow)
+                            .multilineTextAlignment(.center)
+                    }
                     .padding()
-                    .accessibilityLabel("인식된 내용: \(speechManager.transcript)")
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(15)
+                    .padding(.horizontal)
+                }
             }
-            
-            Spacer()
+            .padding(.bottom, 50) // 하단 탭바 영역 고려
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle()) // 전체 화면 터치 영역
+        .contentShape(Rectangle()) // 이 영역을 통해 터치 제스처 감지
+        .background(Color.black)
         // Hold to Speak 제스처 (DragGesture 활용)
         .gesture(
             DragGesture(minimumDistance: 0)
