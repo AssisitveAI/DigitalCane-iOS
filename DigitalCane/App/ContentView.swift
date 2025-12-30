@@ -340,6 +340,7 @@ struct SettingsView: View {
     @AppStorage("preferLessWalking") private var preferLessWalking: Bool = false
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
     @AppStorage("fontScale") private var fontScale: Double = 1.0
+    @AppStorage("emergencyContact") private var emergencyContact: String = ""
     
     var body: some View {
         NavigationView {
@@ -379,26 +380,21 @@ struct SettingsView: View {
                     .accessibilityHint("켜면 걷는 거리를 줄이는 경로를, 끄면 시간이 가장 적게 걸리는 경로를 찾습니다.")
                 }
                 
-                Section(header: Text("디지털 지팡이 설정")) {
+                Section(header: Text("비상 연락처 설정")) {
                     VStack(alignment: .leading) {
-                        Text("기본 탐색 반경: \(Int(searchRadius))m")
-                            .dynamicFont(size: 18)
-                        Slider(value: $searchRadius, in: 20...500, step: 10)
-                            .accentColor(.yellow)
+                        Text("보호자 전화번호")
+                            .dynamicFont(size: 18, weight: .bold)
+                        TextField("010-0000-0000", text: $emergencyContact)
+                            .keyboardType(.phonePad)
+                            .padding(10)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
                     }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("탐색 반경 설정")
-                    .accessibilityValue("\(Int(searchRadius)) 미터")
-                    .accessibilityAdjustableAction { direction in
-                        switch direction {
-                        case .increment:
-                            if searchRadius < 500 { searchRadius += 10 }
-                        case .decrement:
-                            if searchRadius > 20 { searchRadius -= 10 }
-                        default: break
-                        }
-                    }
+                    .accessibilityLabel("보호자 연락처 입력창")
+                    .accessibilityHint("길을 잃었을 때 바로 연결할 지인의 번호를 입력하세요.")
                 }
+                
+                Section(header: Text("디지털 지팡이 설정")) {
                 
                 Section(header: Text("앱 정보")) {
                     HStack {

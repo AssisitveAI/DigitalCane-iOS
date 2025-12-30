@@ -11,6 +11,7 @@ struct NearbyExploreView: View {
     @State private var places: [Place] = []
     @State private var isLoading = false
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
+    @AppStorage("emergencyContact") private var emergencyContact: String = ""
     @State private var isScanningMode = false // 스캔 모드 활성화 여부
     
     // 마지막으로 안내한 장소 및 시간 (중복 안내 방지)
@@ -59,6 +60,48 @@ struct NearbyExploreView: View {
                 }
                 .accessibilityLabel("현재 주소 확인: \(locationManager.currentAddress ?? "확인 중")")
                 .accessibilityHint("탭하면 현재 위치의 주소를 음성으로 안내합니다.")
+                
+                // 도움 요청 센터 (긴급 공유 및 전화)
+                HStack(spacing: 15) {
+                    // 1. 내 위치 공유 버튼
+                    Button(action: shareLocation) {
+                        VStack {
+                            Image(systemName: "square.and.arrow.up.fill")
+                                .font(.title2)
+                            Text("위치 전송")
+                                .font(.caption)
+                                .bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.5), lineWidth: 1))
+                    }
+                    .accessibilityLabel("내 위치 전송")
+                    .accessibilityHint("현재 주소와 지도 링크를 메시지로 다른 사람에게 보냅니다.")
+                    
+                    // 2. 보호자 호출 버튼
+                    Button(action: callGuardian) {
+                        VStack {
+                            Image(systemName: "phone.fill")
+                                .font(.title2)
+                            Text("비상 전화")
+                                .font(.caption)
+                                .bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.green.opacity(0.2))
+                        .foregroundColor(.green)
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.5), lineWidth: 1))
+                    }
+                    .accessibilityLabel("보호자에게 비상 전화")
+                    .accessibilityHint("설정된 번호로 즉시 전화를 겁니다.")
+                }
+                .padding(.horizontal)
                 
                 // 반경 설정
                 radiusControlView
@@ -285,6 +328,43 @@ struct NearbyExploreView: View {
                 lastAnnouncedPlaceId = place.id
                 lastAnnouncementTime = now
             }
+        }
+    }
+    // --- 도움 요청 로직 ---
+    
+    private func shareLocation() {
+        guard let location = locationManager.currentLocation else {
+            speechManager.speak("위치 정보를 아직 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.")
+            return
+        }
+        
+        let address = locationManager.currentAddress ?? "알 수 없는 위치"
+        let mapLink = "https://www.google.com/maps/search/?api=1&query=\(location.coordinate.latitude),\(location.coordinate.longitude)"
+        let message = "[디지털케인 긴급 위치 알림]\n내 위치: \(address)\n지도에서 보기: \(mapLink)"
+        
+        let activityVC = UIActivityViewController(activityItems: [message], applicationActivities: nil)
+        
+        // SwiftUI에서 UIViewController 호출 (최상위 뷰 탐색)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            rootVC.present(activityVC, animated: true)
+        }
+    }
+    
+    private func callGuardian() {
+        if emergencyContact.isEmpty {
+            speechManager.speak("설정 탭에서 먼저 비상 연락처를 등록해 주세요.")
+            return
+        }
+        
+        // 숫자만 추출
+        let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
+        guard let url = URL(string: "tel://\(phoneNumber)") else { return }
+        
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            speechManager.speak("전화 기능을 사용할 수 없는 기기입니다.")
         }
     }
 }
