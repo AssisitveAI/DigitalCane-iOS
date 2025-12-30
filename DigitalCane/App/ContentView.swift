@@ -261,7 +261,8 @@ struct NavigationModeView: View {
                         .cornerRadius(8)
                 }
                 
-                Text(navigationManager.routeOrigin + " 출발")
+                let displayOrigin = navigationManager.routeOrigin == "Current Location" ? "현위치" : navigationManager.routeOrigin
+                Text(displayOrigin + " 출발")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
@@ -386,7 +387,13 @@ struct NavigationModeView: View {
         // 대중교통 탑승 횟수 계산 (walk 제외)
         let transitCount = navigationManager.steps.filter { $0.type != .walk }.count
         
-        var message = "\(dest)까지 가는 방법을 안내해 드릴게요. "
+        var message = ""
+        if origin != "Current Location" && !origin.isEmpty {
+            message = "\(origin)에서 \(dest)까지 가는 방법을 안내해 드릴게요. "
+        } else {
+            message = "\(dest)까지 가는 방법을 안내해 드릴게요. "
+        }
+        
         message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "
         
         if transitCount > 0 {
