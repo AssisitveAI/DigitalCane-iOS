@@ -121,7 +121,7 @@ struct VoiceCommandModeView: View {
                         .stroke(speechManager.isRecording ? Color.red.opacity(0.3) : Color.yellow.opacity(0.2), lineWidth: 2)
                         .scaleEffect(speechManager.isRecording ? 1.5 : 1.0)
                         .opacity(speechManager.isRecording ? 0 : 1)
-                        .animation(speechManager.isRecording ? .easeOut(duration: 1.0).repeatForever(false) : .default, value: speechManager.isRecording)
+                        .animation(speechManager.isRecording ? .easeOut(duration: 1.0).repeatForever(autoreverses: false) : .default, value: speechManager.isRecording)
 
                     Image(systemName: speechManager.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
                         .resizable()
