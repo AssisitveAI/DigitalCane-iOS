@@ -24,7 +24,7 @@
 ### 2-2. API 선택
 다음 API들을 체크:
 - ✅ **POI 통합검색** (장소 검색)
-- ✅ **경로안내** (대중교통 경로)
+- ✅ **대중교통경로안내** (대중교통 경로)
 - ✅ **Geocoding** (주소 ↔ 좌표)
 - ✅ **Reverse Geocoding** (좌표 → 주소)
 
@@ -93,7 +93,7 @@ Query Parameters:
 }
 ```
 
-### 4-2. 대중교통 경로 안내
+### 4-2. 대중교통경로안내
 ```
 POST https://apis.openapi.sk.com/transit/routes
 Headers:

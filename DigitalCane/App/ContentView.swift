@@ -82,16 +82,16 @@ struct ContentView: View {
             // 이전 탭 정리 및 새 탭 초기화
             switch newTab {
             case 0: // 디지털케인 (주변 탐색)
-                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
+                navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
             case 1: // 대중교통경로안내
                 // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
                 navigationManager.stopNavigation()
             case 2: // 도움 요청 (SOS)
-                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
+                navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
             case 3: // 설정
-                navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
+                navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
             default:
                 break
             }
@@ -231,7 +231,7 @@ struct VoiceCommandModeView: View {
     }
 }
 
-// 경로 안내 모드 (리스트 형태 + 요약 안내)
+// 대중교통경로안내 모드 (리스트 형태 + 요약 안내)
 struct NavigationModeView: View {
     @EnvironmentObject var navigationManager: NavigationManager
     @EnvironmentObject var speechManager: SpeechManager

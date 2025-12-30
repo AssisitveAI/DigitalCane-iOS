@@ -33,7 +33,7 @@
    | --- | --- | --- |
    | **Privacy - Speech Recognition Usage Description** | String | 목적지 음성 입력을 위해 음성 인식이 필요합니다. |
    | **Privacy - Microphone Usage Description** | String | 음성 명령을 듣기 위해 마이크 접근이 필요합니다. |
-   | **Privacy - Location When In Use Usage Description** | String | 현재 위치 기반 경로 안내를 제공하기 위해 위치 정보가 필요합니다. |
+   | **Privacy - Location When In Use Usage Description** | String | 현재 위치 기반 대중교통경로안내를 제공하기 위해 위치 정보가 필요합니다. |
 
 ## 4. 실행 (Build & Run)
 1. iPhone을 Mac에 연결하거나 시뮬레이터를 선택합니다.
