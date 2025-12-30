@@ -10,6 +10,7 @@ class NavigationManager: ObservableObject {
     @Published var routeOrigin: String = ""
     @Published var routeDestination: String = ""
     @Published var totalDistance: String = "" // 총 거리 추가
+    @Published var totalDuration: String = "" // 총 소요 시간 추가
     
     // 현재 단계의 음성 안내 메시지
     var currentInstruction: String {
@@ -125,6 +126,7 @@ class NavigationManager: ObservableObject {
         self.routeOrigin = origin
         self.routeDestination = destination
         self.totalDistance = routeData.totalDistance
+        self.totalDuration = routeData.totalDuration
         self.currentRouteDescription = "\(routeData.totalDuration) (\(routeData.totalDistance))"
         self.currentStepIndex = 0
         self.isNavigating = true
