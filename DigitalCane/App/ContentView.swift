@@ -55,7 +55,7 @@ struct ContentView: View {
             // Custom Anchored Tab Bar (4 Tabs)
             HStack(spacing: 0) {
                 tabButton(title: "디지털케인", icon: "magnifyingglass.circle.fill", index: 0)
-                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
+                tabButton(title: "이동플래닝", icon: "map.fill", index: 1)
                 tabButton(title: "도움요청", icon: "exclamationmark.triangle.fill", index: 2)
                 tabButton(title: "설정", icon: "gearshape.fill", index: 3)
             }
@@ -316,35 +316,25 @@ struct NavigationModeView: View {
         }
     }
     
-    // 전체 경로 개요 안내 (인지맵 형성을 위해 주요 교통수단 요약 포함)
+    // 전체 경로 개요 안내 (인지지도 형성을 위해 여정의 '뼈대'를 먼저 안내)
     private func announceOverview() {
         let totalSteps = navigationManager.totalSteps
-        let totalStops = navigationManager.totalTransitStops
+        let transitStops = navigationManager.totalTransitStops
         let origin = navigationManager.routeOrigin
         let dest = navigationManager.routeDestination
         
-        // 주요 교통수단 추출 (예: "4호선, 150번 버스")
-        // 사용자가 전체 여정의 '구조'를 파악할 수 있도록 돕습니다.
         let transitSteps = navigationManager.steps.filter { $0.type == StepType.board }
-        var lineSummary = ""
+        var structureSummary = ""
         
         if !transitSteps.isEmpty {
-            let lines = transitSteps.map { step -> String in
-                // "143번 버스 탑승" -> "143번 버스"
-                return step.action.replacingOccurrences(of: " 탑승", with: "")
-            }
-            
-            // "4호선, 150번 버스" 식으로 연결
-            let joinedLines = lines.joined(separator: ", ")
-            lineSummary = "주요 이동 수단은 \(joinedLines)입니다."
-            
+            let lines = transitSteps.map { $0.action.replacingOccurrences(of: " 탑승", with: "") }
+            structureSummary = "이번 여정은 \(lines.joined(separator: "와 "))을(를) 이용하는 구조입니다."
         } else {
-            lineSummary = "도보 중심의 경로입니다."
+            structureSummary = "도보를 통한 주변 인지 위주의 경로입니다."
         }
         
-        // "서울역에서 시청으로 가는 경로를 찾았습니다. 주요 이동 수단은 4호선입니다. 총 5단계..."
-        // 이제 사용자는 "아, 4호선을 타고 가는구나"라고 먼저 인지할 수 있습니다.
-        let overview = "\(origin)에서 \(dest)로 가는 경로를 찾았습니다. \(lineSummary) 총 \(totalSteps)단계, \(totalStops)개 정류장을 거칩니다. 화면을 터치하여 상세 내용을 확인해 보세요."
+        // 인지지도 형성을 위한 전략적 요약
+        let overview = "\(origin)에서 \(dest)까지의 전체 플래닝을 마쳤습니다. \(structureSummary) 총 \(totalSteps)단계를 거치게 되며, 머릿속으로 전체 경로를 그려보실 수 있도록 주요 지점별로 안내해 드릴게요. 화면을 터치하면 첫 번째 단계부터 상세히 설명합니다."
         
         speechManager.speak(overview)
     }
