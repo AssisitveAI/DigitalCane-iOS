@@ -12,6 +12,10 @@ class NavigationManager: ObservableObject {
     @Published var totalDistance: String = "" // 총 거리 추가
     @Published var totalDuration: String = "" // 총 소요 시간 추가
     
+    // 대화 맥락 유지를 위한 히스토리 (AI가 이전 대화를 기억)
+    @Published var conversationHistory: [String] = []
+    @Published var isWaitingForClarification = false // 추가 정보 대기 중
+    
     // 현재 단계의 음성 안내 메시지
     var currentInstruction: String {
         guard currentStepIndex < steps.count else { return "안내가 종료되었습니다." }
@@ -40,9 +44,18 @@ class NavigationManager: ObservableObject {
         return steps.reduce(0) { $0 + $1.stopCount }
     }
     
+    // 대화 히스토리 초기화
+    func clearConversation() {
+        conversationHistory = []
+        isWaitingForClarification = false
+    }
+    
     // API 서비스를 통해 경로를 받아오는 함수
     func findRoute(to userVoiceInput: String, locationManager: LocationManager, onFailure: @escaping (String) -> Void) {
         print("User Voice Input: \(userVoiceInput)")
+        
+        // 대화 히스토리에 현재 입력 추가
+        conversationHistory.append("사용자: \(userVoiceInput)")
         
         // 위치 서비스 상태 확인
         if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
@@ -61,13 +74,19 @@ class NavigationManager: ObservableObject {
         
         isLoading = true
         
-        // 1. LLM을 통한 의도 파악
-            APIService.shared.analyzeIntent(from: userVoiceInput) { [weak self] intent in
+        // 전체 대화 맥락을 포함하여 AI에 전달
+        let fullContext = conversationHistory.joined(separator: "\n")
+        
+        // 1. LLM을 통한 의도 파악 (대화 맥락 포함)
+        APIService.shared.analyzeIntent(from: fullContext) { [weak self] intent in
             guard let self = self else { return }
             
             // 1-1. 추가 정보가 필요한 경우 (대화형 정교화)
             if let intent = intent, intent.clarificationNeeded == true, let question = intent.clarificationQuestion {
                 print("Clarification needed: \(question)")
+                // AI 질문도 히스토리에 추가
+                self.conversationHistory.append("AI: \(question)")
+                self.isWaitingForClarification = true
                 DispatchQueue.main.async {
                     self.isLoading = false
                     onFailure(question)
@@ -80,10 +99,14 @@ class NavigationManager: ObservableObject {
                 print("Intent analysis failed or empty destination")
                 DispatchQueue.main.async {
                     self.isLoading = false
-                    onFailure("목적지를 명확히 인식하지 못했습니다. 정확한 장소명을 다시 말씀해 주세요.")
+                    self.isWaitingForClarification = true // 추가 정보 요청
+                    onFailure("목적지를 명확히 인식하지 못했습니다. 어디로 가고 싶으신가요?")
                 }
                 return
             }
+            
+            // 성공적으로 의도 파악 완료 - 대화 히스토리 초기화
+            self.isWaitingForClarification = false
             
             print("Analyzed Intent: Go to \(intent.destinationName) from \(intent.originName ?? "Current")")
             
@@ -130,6 +153,8 @@ class NavigationManager: ObservableObject {
         self.currentRouteDescription = "\(routeData.totalDuration) (\(routeData.totalDistance))"
         self.currentStepIndex = 0
         self.isNavigating = true
+        // 경로 검색 성공 - 대화 맥락 초기화 (새 검색은 새 대화로)
+        clearConversation()
     }
     
     func nextStep() {
@@ -150,5 +175,7 @@ class NavigationManager: ObservableObject {
         self.totalDistance = ""
         self.totalDuration = ""
         self.currentStepIndex = 0
+        // 대화 맥락 초기화 (탭 전환 시)
+        clearConversation()
     }
 }
