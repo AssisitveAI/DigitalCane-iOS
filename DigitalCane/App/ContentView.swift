@@ -51,7 +51,7 @@ struct ContentView: View {
             
             // Custom Anchored Tab Bar (Optimized for iPhone SE)
             HStack(spacing: 0) {
-                tabButton(title: "지팡이", icon: "magnifyingglass.circle.fill", index: 0)
+                tabButton(title: "디지털케인", icon: "magnifyingglass.circle.fill", index: 0)
                 tabButton(title: "경로안내", icon: "bus.fill", index: 1)
                 tabButton(title: "설정", icon: "gearshape.fill", index: 2)
             }
@@ -71,7 +71,13 @@ struct ContentView: View {
     
     // Helper view for Custom Tab Buttons
     private func tabButton(title: String, icon: String, index: Int) -> some View {
-        Button(action: { selectedTab = index }) {
+        Button(action: { 
+            // 탭을 누를 때마다 갱신 (특히 디지털케인 탭)
+            if index == 0 {
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
+            }
+            selectedTab = index 
+        }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 22))

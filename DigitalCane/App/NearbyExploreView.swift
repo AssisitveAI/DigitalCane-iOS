@@ -23,7 +23,7 @@ struct NearbyExploreView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 25) {
                 // 상단 헤더
-                Text("디지털 지팡이")
+                Text("디지털케인")
                     .font(.largeTitle)
                     .bold()
                     .foregroundColor(.yellow)
@@ -92,6 +92,12 @@ struct NearbyExploreView: View {
             } else {
                 // 이미 데이터가 있다면 즉시 나침반 재개
                 startScanning()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshNearbyExplore"))) { _ in
+            // 탭을 다시 누를 때마다 장소 정보 수동 갱신
+            if !isLoading {
+                fetchPlaces()
             }
         }
         .onDisappear {
