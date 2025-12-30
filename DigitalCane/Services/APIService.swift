@@ -395,9 +395,15 @@ class APIService {
     /// MapKit 범용 검색 폴백 함수 (가장 안정적임)
     private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
         let request = MKLocalSearch.Request()
-        // 한국에서는 '가까운' 혹은 '시설' 같은 키워드가 범상하게 잘 작동함
-        request.naturalLanguageQuery = "장소" 
+        // 한국 애플 지도에서 가장 풍부한 결과를 호출하는 포괄적인 키워드와 필터 설정
+        request.naturalLanguageQuery = "주변 시설" 
         request.region = region
+        
+        // POI 필터 및 결과 타입 최대로 개방 (결과 개수 증가 목적)
+        if #available(iOS 13.0, *) {
+            request.pointOfInterestFilter = .includingAll
+            request.resultTypes = .pointOfInterest
+        }
         
         let search = MKLocalSearch(request: request)
         search.start { response, error in
@@ -407,6 +413,7 @@ class APIService {
                 return
             }
             
+            // 결과가 너무 적을 경우를 대비해 MapKit이 제공하는 최대한의 정보를 수집
             let places = response.mapItems.map { item -> Place in
                 Place(
                     name: item.name ?? "장소",
