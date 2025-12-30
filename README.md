@@ -47,13 +47,16 @@
   - `CoreLocation`: 실시간 위치 및 헤딩(방위각) 추적
   - `CoreHaptics` / `UIImpactFeedbackGenerator`: 촉각 피드백 제공
 - **AI & Data**:
-  - **OpenAI GPT-4o-mini**: 4배 빠른 응답 속도와 98% 비용 절감. 사용자의 자연어 발화에서 목적지 및 출발지 의도(Intent)를 즉각 추출
+  - **Google Gemini 2.0 Flash**: 초고속 응답, 33% 비용 절감, 우수한 JSON 추출 신뢰도. 사용자의 자연어 발화에서 목적지 및 출발지 의도(Intent)를 즉각 추출
   - **Google Maps Platform**:
     - **Places API v1**: 주변 POI 검색 (안정적, 풍부한 한국어 데이터)
     - **Routes API v2**: 대중교통 경로 안내 (버스, 지하철, KTX 지원)
 - **Accessibility**: 
-  - `VoiceOver` 최적화
-  - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS)
+  - `VoiceOver` 최적화: 중요 정보 우선 안내(Action-First Layout), 버튼 역할(Trait) 명시.
+  - `Dynamic Type` 지원: 설정 탭에서 글자 크기(0.8x~2.0x) 조절 가능.
+  - `Direct Touch`: 마이크 버튼 '누르고 말하기' 시 VoiceOver 제스처 우회 기능 지원.
+  - `Haptic Feedback`: 탭 전환, 조준 성공, 음성 인식 등 상황별 진동 피드백.
+  - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS).
 - **Developer Tools**:
   - **Context7 MCP**: 실시간 버전별 문서 제공으로 최신 iOS/Swift API 정보 활용
 
@@ -71,7 +74,7 @@
    - `Secrets.plist` 파일을 프로젝트 루트에 생성합니다.
    - 아래 키를 추가합니다:
      - `GOOGLE_MAPS_API_KEY`: Google Cloud Console에서 발급
-     - `OPENAI_API_KEY`: OpenAI API Key
+      - `GEMINI_API_KEY`: Google AI Studio에서 발급 (Gemini 2.0 Flash용)
 
 3. **빌드 및 실행**
    - Xcode에서 `DigitalCane.xcodeproj`를 엽니다.

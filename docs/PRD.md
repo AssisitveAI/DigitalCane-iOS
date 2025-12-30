@@ -13,7 +13,7 @@
 ### 3.1. 지능형 음성 경로 안내 (Smart Navigation)
 - **자연어 목적지 검색**: "서울역으로 가줘", "여기서 부산역 가는 길 알려줘" 등 자연스러운 음성 명령을 이해합니다.
 - **정밀 의도 파악 (AI Intent Analysis)**:
-  - OpenAI GPT-4o 기반.
+  - Google Gemini 2.0 Flash 기반. (초고속 응답, 33% 비용 절감, 우수한 JSON 신뢰도)
   - 출발지(Origin)와 목적지(Destination)를 구분하여 추출.
   - 불확실한 발화에 대해 임의로 장소를 추측하지 않도록 프롬프트 제어 강화 (No Guessing Policy).
 - **복합 경로 엔진 (Multi-modal Routing)**:
@@ -34,9 +34,17 @@
 - **유연한 반경 설정**: 설정 탭 및 메인 UI에서 탐색 범위(20m~500m) 동기화 조절.
 
 ### 3.3. 접근성 및 편의성 (Accessibility & UX)
-- **High Contrast UI**: 저시력 사용자를 위한 고대비(Yellow on Black), 큰 텍스트 인터페이스.
-- **VoiceOver First**: 모든 UI 요소에 적절한 Accessibility Label/Hint 적용.
-- **설정(Settings) 탭**: 경로 탐색 옵션(안전 우선 vs 시간 우선), 탐색 반경 기본값 등을 통합 관리.
+- **High Contrast & Dynamic UI**: 
+  - 저시력 사용자를 위한 고대비(Yellow on Black) 테마.
+  - **글자 크기 조절**: 설정 탭에서 최소 0.8배에서 최대 2.0배까지 글자 크기 동적 조절 가능 (Large Title 지원).
+- **VoiceOver Optimization**: 
+  - **Action-First Guidance**: "단계 1"보다 "버스 탑승" 처럼 행동 지침을 먼저 읽어주어 인지 속도 향상.
+  - **Direct Touch**: 마이크 버튼 등 누르고 있어야 하는 UI에서 VoiceOver 제스처를 우회하여 직관적 조작 지원.
+  - **Button Traits**: 이미지가 아닌 명시적 버튼 속성 부여로 명확한 안내.
+- **Multi-sensory Feedback**:
+  - **Haptics**: 화면 전환, 버튼 클릭, 방향 조준 시 미세하고 다양한 진동 피드백.
+  - **Sound**: 화면 터치 시 상세 내용 음성 안내(Touch-to-Speak) 지원.
+- **통합 설정(Integration)**: 경로 탐색 옵션, 탐색 반경, 글자 크기 등을 한 곳에서 관리.
 
 ## 4. 기술 아키텍처 (Technical Architecture)
 - **Client**: iOS (SwiftUI, MVVM 패턴)
@@ -45,7 +53,7 @@
   - `CompassManager`: 디바이스 헤딩(Heading) 계산 및 타겟 방위각(Bearing) 매칭.
   - `SpeechManager`: SFSpeechRecognizer(STT) 및 AVSpeechSynthesizer(TTS) 통합 관리.
 - **External APIs**:
-  - **OpenAI API**: 사용자 발화 의도(Intent) 파싱.
+  - **Google Gemini API**: 사용자 발화 의도(Intent) 파싱. (Gemini 2.0 Flash 모델)
   - **Google Maps Platform**:
     - `Routes API`: 경로 산출.
     - `Places API`: 주변 장소 탐색.

@@ -45,8 +45,10 @@ struct ContentView: View {
         }
         .accentColor(.yellow)
         .onChange(of: selectedTab) { _ in
-            // 탭 변경 시 즉시 음성 중단
+            // 탭 변경 시 즉시 음성 중단 및 햅틱 피드백
             speechManager.stopSpeaking()
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
         }
         .onAppear {
             // 탭바 스타일링 (고대비 & 큰 글씨)
@@ -93,12 +95,14 @@ struct VoiceCommandModeView: View {
                 .frame(width: 150, height: 150)
                 .foregroundColor(speechManager.isRecording ? .red : .yellow)
                 // VoiceOver 사용자를 위한 힌트 (VoiceOver는 드래그 제스처보다 이중 탭/매직 탭 사용 권장)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityRemoveTraits(.isImage)
                 .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 전송됩니다." : "마이크 버튼. 누르고 있으면 말하기, 떼면 전송")
-                .accessibilityHint("화면을 길게 누르고 말한 뒤, 손을 떼세요. VoiceOver 사용자는 두 번 탭하여 시작하고, 다시 두 번 탭하여 종료할 수도 있습니다.")
+                .accessibilityHint("이 영역은 다이렉트 터치를 지원합니다. VoiceOver가 켜져 있어도 화면을 곧바로 길게 누르고 말한 뒤 손을 떼면 전송됩니다. 또는 두 손가락으로 두 번 탭하여(매직 탭) 시작/종료할 수도 있습니다.")
             
             // 텍스트 안내
             Text(speechManager.isRecording ? "듣고 있어요..." : "화면을 누른 상태로\n목적지를 말해주세요")
-                .font(.system(size: 30, weight: .bold)) // 큰 글씨
+                .dynamicFont(size: 30, weight: .bold) // 동적 폰트 적용
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .padding()
@@ -106,7 +110,7 @@ struct VoiceCommandModeView: View {
             // 인식된 텍스트 실시간 표시
             if !speechManager.transcript.isEmpty {
                 Text("인식됨: \"\(speechManager.transcript)\"")
-                    .font(.title2)
+                    .dynamicFont(size: 24) // 동적 폰트 적용
                     .foregroundColor(.yellow)
                     .padding()
                     .accessibilityLabel("인식된 내용: \(speechManager.transcript)")
@@ -138,6 +142,8 @@ struct VoiceCommandModeView: View {
                 startListening()
             }
         }
+        // VoiceOver 다이렉트 터치 허용 (즉시 반응)
+        .accessibilityAddTraits(.allowsDirectInteraction)
     }
     
     private func startListening() {
@@ -180,8 +186,7 @@ struct NavigationModeView: View {
         VStack {
             // 상단 요약 정보
             Text("경로 요약")
-                .font(.title2)
-                .bold()
+                .dynamicFont(size: 28, weight: .bold) // 동적 폰트
                 .foregroundColor(.yellow)
                 .padding(.top)
                 .accessibilityAddTraits(.isHeader)
@@ -190,6 +195,7 @@ struct NavigationModeView: View {
             ScrollView {
                 if navigationManager.steps.isEmpty {
                     Text("경로 정보를 불러오는 중입니다...")
+                        .dynamicFont(size: 18)
                         .foregroundColor(.gray)
                         .padding()
                 } else {
@@ -198,18 +204,18 @@ struct NavigationModeView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 // 단계 번호와 액션
                                 Text("단계 \(index + 1): \(step.action)")
-                                    .font(.headline)
+                                    .dynamicFont(size: 20, weight: .bold) // 동적 폰트
                                     .foregroundColor(.yellow)
                                 
                                 // 상세 지시
                                 Text(step.instruction)
-                                    .font(.body)
+                                    .dynamicFont(size: 18) // 동적 폰트
                                     .foregroundColor(.white)
                                 
                                 // 추가 정보
                                 if !step.detail.isEmpty {
                                     Text(step.detail)
-                                        .font(.caption)
+                                        .dynamicFont(size: 14) // 동적 폰트
                                         .foregroundColor(Color(white: 0.8))
                                 }
                                 
@@ -217,8 +223,13 @@ struct NavigationModeView: View {
                             }
                             .padding()
                             .background(Color.black)
+                            .onTapGesture {
+                                // 일반 터치(저시력/비VoiceOver) 사용자를 위한 음성 안내
+                                let content = "단계 \(index + 1). \(step.instruction). \(step.detail)"
+                                speechManager.speak(content)
+                            }
                             .accessibilityElement(children: .combine)
-                            .accessibilityLabel("단계 \(index + 1), \(step.action). \(step.instruction)")
+                            .accessibilityLabel("\(step.action). \(step.instruction). 단계 \(index + 1)")
                             .accessibilityHint(step.detail)
                         }
                     }
@@ -233,8 +244,8 @@ struct NavigationModeView: View {
                 HStack {
                     Image(systemName: "mic.fill")
                     Text("새로운 검색 / 안내 종료")
+                        .dynamicFont(size: 20, weight: .bold) // 동적 폰트
                 }
-                .font(.headline)
                 .padding()
                 .frame(maxWidth: .infinity)
                 .background(Color.yellow) // 고대비 강조
@@ -284,21 +295,61 @@ struct NavigationModeView: View {
     }
 }
 
+struct FontScaleModifier: ViewModifier {
+    @AppStorage("fontScale") var fontScale: Double = 1.0
+    var size: CGFloat
+    var weight: Font.Weight
+    
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size * fontScale, weight: weight))
+    }
+}
+
+extension View {
+    func dynamicFont(size: CGFloat, weight: Font.Weight = .regular) -> some View {
+        self.modifier(FontScaleModifier(size: size, weight: weight))
+    }
+}
+
 // 설정 뷰 (파일 분리 시 빌드 누락 방지용 통합)
 struct SettingsView: View {
     @AppStorage("preferLessWalking") private var preferLessWalking: Bool = false
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
+    @AppStorage("fontScale") private var fontScale: Double = 1.0
     
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("화면 설정")) {
+                    VStack(alignment: .leading) {
+                        Text("글자 크기: \(String(format: "%.1f", fontScale))배")
+                            .dynamicFont(size: 18, weight: .bold)
+                        
+                        Slider(value: $fontScale, in: 0.8...2.0, step: 0.1)
+                            .accentColor(.yellow)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("글자 크기 조절")
+                    .accessibilityValue("\(Int(fontScale * 100))퍼센트")
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment:
+                            if fontScale < 2.0 { fontScale += 0.1 }
+                        case .decrement:
+                            if fontScale > 0.8 { fontScale -= 0.1 }
+                        default: break
+                        }
+                    }
+                }
+                
                 Section(header: Text("경로 탐색 설정")) {
                     Toggle(isOn: $preferLessWalking) {
                         VStack(alignment: .leading) {
                             Text("안전 우선 (도보 최소화)")
-                                .font(.headline)
+                                .dynamicFont(size: 18, weight: .bold)
                             Text(preferLessWalking ? "걷는 거리가 적은 경로를 우선합니다.\n(소요 시간이 더 걸릴 수 있습니다)" : "최단 시간 경로를 우선합니다.")
-                                .font(.caption)
+                                .dynamicFont(size: 14)
                                 .foregroundColor(.gray)
                         }
                     }
@@ -308,6 +359,7 @@ struct SettingsView: View {
                 Section(header: Text("디지털 지팡이 설정")) {
                     VStack(alignment: .leading) {
                         Text("기본 탐색 반경: \(Int(searchRadius))m")
+                            .dynamicFont(size: 18)
                         Slider(value: $searchRadius, in: 20...500, step: 10)
                             .accentColor(.yellow)
                     }
@@ -327,9 +379,9 @@ struct SettingsView: View {
                 
                 Section(header: Text("앱 정보")) {
                     HStack {
-                        Text("버전")
+                        Text("버전").dynamicFont(size: 16)
                         Spacer()
-                        Text("1.0.0")
+                        Text("1.0.0").dynamicFont(size: 16)
                     }
                 }
             }

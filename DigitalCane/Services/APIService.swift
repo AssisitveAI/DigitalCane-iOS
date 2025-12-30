@@ -17,31 +17,33 @@ class APIService {
         return value
     }
     
-    private var openAIApiKey: String {
+    private var geminiApiKey: String {
         guard let filePath = Bundle.main.path(forResource: "Secrets", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: filePath),
-              let value = plist["OPENAI_API_KEY"] as? String else {
-            print("⚠️ Error: OPENAI_API_KEY not found in Secrets.plist")
-            return ""
+              let value = plist["GEMINI_API_KEY"] as? String else {
+            // Fallback: Google API Key를 Gemini에도 사용 가능 (같은 GCP 프로젝트)
+            print("⚠️ GEMINI_API_KEY not found, trying GOOGLE_MAPS_API_KEY")
+            return googleApiKey
         }
         return value
     }
     
-    // MARK: - 1. Intent Analysis using OpenAI
+    // MARK: - 1. Intent Analysis using Gemini 2.0 Flash
+    // 33% 저렴, 더 빠른 응답, 우수한 JSON 신뢰도
     func analyzeIntent(from text: String, completion: @escaping (LocationIntent?) -> Void) {
-        guard !openAIApiKey.isEmpty else {
-            print("OpenAI API Key is missing")
+        guard !geminiApiKey.isEmpty else {
+            print("Gemini API Key is missing")
             completion(nil)
             return
         }
         
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        // Gemini 2.0 Flash API 엔드포인트
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(geminiApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.addValue("Bearer \(openAIApiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // JSON Body
+        // 시스템 프롬프트와 사용자 입력
         let systemPrompt = """
         You are 'Digital Cane', a smart mobility assistant for visually impaired users IN SOUTH KOREA.
         The user interacts conversationally (e.g., "I'd like to go to...", "How can I get to...?", "Where is...?", "Guide me to...").
@@ -64,16 +66,22 @@ class APIService {
         - User: "서울맹학교에서 시청으로 가고 싶어" -> {"destinationName": "서울시청", "originName": "서울맹학교", "transportMode": "TRANSIT", "clarificationNeeded": false, "clarificationQuestion": null}
         - User: "From Yonsei to Seoul Station" -> {"destinationName": "서울역", "originName": "연세대학교", "transportMode": "TRANSIT", "clarificationNeeded": false, "clarificationQuestion": null}
         
-        Respond ONLY in JSON format.
+        Respond ONLY in valid JSON format. No markdown, no explanation.
         """
         
+        // Gemini API 요청 바디
         let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini", // 4배 빠르고 98% 저렴 - Intent 분석에 최적
-            "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": text]
+            "contents": [
+                [
+                    "parts": [
+                        ["text": "\(systemPrompt)\n\nUser input: \(text)"]
+                    ]
+                ]
             ],
-            "response_format": ["type": "json_object"]
+            "generationConfig": [
+                "responseMimeType": "application/json",
+                "temperature": 0.1  // 일관된 JSON 출력을 위해 낮은 온도
+            ]
         ]
         
         do {
@@ -86,29 +94,32 @@ class APIService {
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             guard let data = data, error == nil else {
-                print("OpenAI Network Error: \(error?.localizedDescription ?? "Unknown error")")
+                print("Gemini Network Error: \(error?.localizedDescription ?? "Unknown error")")
                 completion(nil)
                 return
             }
             
             do {
-                let decodedResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
-                if let content = decodedResponse.choices.first?.message.content,
-                   let data = content.data(using: .utf8) {
-                    print("🤖 OpenAI Raw JSON: \(content)")
+                let decodedResponse = try JSONDecoder().decode(GeminiResponse.self, from: data)
+                if let content = decodedResponse.candidates?.first?.content?.parts?.first?.text,
+                   let jsonData = content.data(using: .utf8) {
+                    print("🤖 Gemini Raw JSON: \(content)")
                     
-                    if let intent = try? JSONDecoder().decode(LocationIntent.self, from: data) {
+                    if let intent = try? JSONDecoder().decode(LocationIntent.self, from: jsonData) {
                         completion(intent)
                     } else {
-                        print("Failed to parse OpenAI Content")
+                        print("Failed to parse Gemini Content")
                         completion(nil)
                     }
                 } else {
-                    print("No content in OpenAI response")
+                    print("No content in Gemini response")
+                    if let str = String(data: data, encoding: .utf8) {
+                        print("Raw Response: \(str)")
+                    }
                     completion(nil)
                 }
             } catch {
-                print("OpenAI Decoding Error: \(error)")
+                print("Gemini Decoding Error: \(error)")
                 if let str = String(data: data, encoding: .utf8) {
                     print("Raw Res: \(str)")
                 }
@@ -284,8 +295,10 @@ class APIService {
             }
             
             do {
-                // 디버깅용 로그 (필요 시 주석 해제)
-                // if let str = String(data: data, encoding: .utf8) { print("📦 Google Routes API Raw Response: \(str)") }
+                // 디버깅용 로그 활성화
+                if let str = String(data: data, encoding: .utf8) { 
+                    print("📦 Google Routes API Raw Response: \(str)") 
+                }
                 
                 let decodedResponse = try JSONDecoder().decode(GRouteResponse.self, from: data)
                 if let route = decodedResponse.routes?.first,
@@ -293,16 +306,24 @@ class APIService {
                     
                     // GRouteStep -> RouteStep 변환
                     let steps = (leg.steps ?? []).compactMap { self.convertStep($0) }
-                    let totalDuration = "약 \((Int(leg.duration?.replacingOccurrences(of: "s", with: "") ?? "0") ?? 0) / 60)분"
                     
-                    let routeData = RouteData(steps: steps, totalDuration: totalDuration)
+                    // 총 소요 시간: localizedValues 우선 사용 (형식: "1시간 4분") -> 없으면 초 단위 계산
+                    var totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text
+                    
+                    if totalDuration == nil {
+                        let durationSeconds = (Int(leg.duration?.replacingOccurrences(of: "s", with: "") ?? "0") ?? 0)
+                        totalDuration = "약 \(durationSeconds / 60)분"
+                    }
+                    
+                    print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration ?? "")")
+                    let routeData = RouteData(steps: steps, totalDuration: totalDuration ?? "")
                     completion(routeData)
                 } else {
-                    print("No routes found")
+                    print("⚠️ No routes found in response")
                     completion(nil)
                 }
             } catch {
-                print("Google Routes Decoding Error: \(error)")
+                print("❌ Google Routes Decoding Error: \(error)")
                 completion(nil)
             }
         }.resume()
@@ -494,7 +515,7 @@ class APIService {
             return nil
         }
         
-        let detail = gStep.localizedValues?.duration?.text ?? ""
+        let detail = gStep.localizedValues?.duration?.text ?? gStep.localizedValues?.staticDuration?.text ?? ""
         var type: StepType = .ride
         var action = "이동"
         var instruction = gStep.navigationInstruction?.instructions ?? "이동"
@@ -511,31 +532,40 @@ class APIService {
             // print("  - vehicle.type: \(transit.transitLine?.vehicle?.type ?? "nil")")
             
             // 정보 추출
+            // 정보 추출
             let rawLine = transit.transitLine?.shortName ?? transit.transitLine?.name ?? ""
-            let vehicleName = transit.transitLine?.vehicle?.name?.text ?? "대중교통" // "버스", "지하철" 등
             
-            // 라인 이름 정제 (숫자 여부 확인)
-            // shortName이 없으면 name을 쓰는데, name이 "간선버스 143"식으로 되어있을 수 있음
+            // 차량 이름 폴백 (예: "BUS" -> "버스")
+            var vehicleName = transit.transitLine?.vehicle?.name?.text
+            if vehicleName == nil {
+                switch transit.transitLine?.vehicle?.type {
+                case "BUS": vehicleName = "버스"
+                case "SUBWAY": vehicleName = "지하철"
+                case "RAIL": vehicleName = "기차"
+                case "FERRY": vehicleName = "배"
+                case "TRAM": vehicleName = "트램"
+                default: vehicleName = "대중교통"
+                }
+            }
             
+            // 라인 이름 정제
             var lineDisplay = rawLine
             let isNumeric = Int(rawLine) != nil
+            let safeVehicleName = vehicleName ?? "대중교통"
             
             // 한국어 최적화 포맷팅
-            if vehicleName.contains("버스") {
-                // 이미 "버스" 글자가 포함되어 있는지 체크
+            if safeVehicleName.contains("버스") {
                 if lineDisplay.contains("버스") {
                     // "간선버스 143" -> 그대로
                 } else {
                     if isNumeric { lineDisplay = "\(rawLine)번 버스" }
                     else { lineDisplay = "\(rawLine) 버스" }
                 }
-            } else if vehicleName.contains("지하철") || vehicleName.contains("전철") {
+            } else if safeVehicleName.contains("지하철") || safeVehicleName.contains("전철") {
                 if isNumeric { lineDisplay = "\(rawLine)호선" }
-                // 이미 "호선"이 있거나 문자열이면 그대로
             } else {
-                // 그 외 (기차 등)
-                 if !lineDisplay.isEmpty { lineDisplay = "\(rawLine) (\(vehicleName))" }
-                 else { lineDisplay = vehicleName }
+                 if !lineDisplay.isEmpty { lineDisplay = "\(rawLine) (\(safeVehicleName))" }
+                 else { lineDisplay = safeVehicleName }
             }
             
             let departure = transit.stopDetails?.departureStop?.name ?? "승차 정류장"
@@ -543,21 +573,23 @@ class APIService {
             let headsign = transit.headsign ?? ""
             stopCount = transit.stopCount ?? 0
             
-            // headsign 검증 (Google API가 숫자만 보내는 경우 무시)
+            // headsign 검증
             var directionInfo = ""
             if !headsign.isEmpty && headsign.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) != nil {
-                // 숫자가 아닌 문자가 포함되어 있으면 유효한 방향 정보
                 directionInfo = " (\(headsign) 방면)"
             }
             
             action = "\(lineDisplay) 탑승"
             
-            // Google의 instructions는 한국에서 부정확하므로 직접 생성
             instruction = "\(departure)에서 \(lineDisplay)을(를) 타세요.\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 내립니다."
+            
+            // 거리 정보 폴백 (localizedValues.distance)
+            let distanceText = gStep.localizedValues?.distance?.text ?? ""
+            let detailInfo = !distanceText.isEmpty ? "\(detail). \(distanceText) 이동." : "\(detail)."
             
             return RouteStep(type: .board,
                              instruction: instruction,
-                             detail: "이동 시간 약 \(detail).",
+                             detail: "이동 시간 약 \(detailInfo)",
                              action: action,
                              stopCount: stopCount)
         }
@@ -595,18 +627,22 @@ struct RouteStep {
     let stopCount: Int // 정류장 개수 추가
 }
 
-// MARK: - OpenAI Codable Models
+// MARK: - Gemini Codable Models
 
-struct OpenAIChatResponse: Decodable {
-    let choices: [OpenAIChoice]
+struct GeminiResponse: Decodable {
+    let candidates: [GeminiCandidate]?
 }
 
-struct OpenAIChoice: Decodable {
-    let message: OpenAIMessage
+struct GeminiCandidate: Decodable {
+    let content: GeminiContent?
 }
 
-struct OpenAIMessage: Decodable {
-    let content: String
+struct GeminiContent: Decodable {
+    let parts: [GeminiPart]?
+}
+
+struct GeminiPart: Decodable {
+    let text: String?
 }
 
 // MARK: - Google Routes API Codable Models
@@ -622,6 +658,7 @@ struct GRoute: Decodable {
 struct GRouteLeg: Decodable {
     let steps: [GRouteStep]?
     let duration: String? // "123s"
+    let localizedValues: GLocalizedValues?
 }
 
 struct GRouteStep: Decodable {
@@ -637,6 +674,7 @@ struct GNavigationInstruction: Decodable {
 
 struct GLocalizedValues: Decodable {
     let duration: GTextValue?
+    let staticDuration: GTextValue?
     let distance: GTextValue?
 }
 
