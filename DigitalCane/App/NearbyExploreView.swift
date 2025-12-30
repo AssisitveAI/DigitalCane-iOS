@@ -207,8 +207,8 @@ struct NearbyExploreView: View {
                     }
                 }
                 
-                if let errorMsg = errorMsg {
-                    print("❌ MapKit Fetch Error: \(errorMsg)")
+                if let error = error {
+                    print("❌ Fetch Error: \(error)")
                     UIAccessibility.post(notification: .announcement, argument: "주변 장소를 찾을 수 없습니다")
                 }
             }
