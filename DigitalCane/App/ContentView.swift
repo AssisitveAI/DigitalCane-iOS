@@ -8,67 +8,48 @@ struct ContentView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 1. 메인 콘텐츠 영역 (화면 상단부터 탭바 직전까지)
-            ZStack {
-                switch selectedTab {
-                case 0:
-                    NearbyExploreView()
-                case 1:
-                    VStack {
-                        if navigationManager.isNavigating {
-                           NavigationModeView()
-                        } else {
-                           VoiceCommandModeView(onCommit: { text in
-                               navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
-                                   speechManager.speak(errorMessage)
-                               })
-                           })
-                        }
-                    }
-                    .background(Color.black)
-                case 2:
-                    SettingsView()
-                default:
-                    EmptyView()
+        TabView(selection: $selectedTab) {
+            // Tab 1: 디지털 지팡이
+            NearbyExploreView()
+                .tabItem {
+                    Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
+                }
+                .tag(0)
+            
+            // Tab 2: 경로 안내
+            VStack {
+                if navigationManager.isNavigating {
+                   NavigationModeView()
+                } else {
+                   VoiceCommandModeView(onCommit: { text in
+                       navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
+                           speechManager.speak(errorMessage)
+                       })
+                   })
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // 2. 물리적 랜드마크 탭바 (화면 최하단 고정)
-            HStack(spacing: 0) {
-                tabButton(title: "지팡이", icon: "magnifyingglass.circle.fill", index: 0)
-                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
-                tabButton(title: "설정", icon: "gearshape.fill", index: 2)
+            .background(Color.black)
+            .tabItem {
+                Label("경로 안내", systemImage: "bus.fill")
             }
-            .padding(.top, 12) // 버튼 위 여백
-            .padding(.bottom, 20) // 하단 베젤/홈 인디케이터 영역 (터치 오류 방지 및 그립감 확보)
-            .background(Color.black) // 불투명 배경으로 확실한 경계 제공
+            .tag(1)
+            
+            // Tab 3: 설정
+            SettingsView()
+                .tabItem {
+                    Label("설정", systemImage: "gearshape.fill")
+                }
+                .tag(2)
         }
-        .ignoresSafeArea(.keyboard) 
-        .edgesIgnoringSafeArea(.bottom) // 탭바 배경을 화면 물리적 끝까지 확장
+        // iOS 16+ 표준: 탭바 배경을 검은색, 불투명, 항상 보이게 강제 설정
+        .toolbarBackground(.black, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .accentColor(.yellow)
         .onChange(of: selectedTab) { _ in
             speechManager.stopSpeaking()
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
         }
-    }
-    
-    // 커스텀 탭 버튼
-    private func tabButton(title: String, icon: String, index: Int) -> some View {
-        Button(action: { selectedTab = index }) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                Text(title)
-                    .font(.caption)
-            }
-            .frame(maxWidth: .infinity)
-            .foregroundColor(selectedTab == index ? .yellow : .gray)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(selectedTab == index ? [.isButton, .isSelected] : [.isButton])
     }
 }
 
