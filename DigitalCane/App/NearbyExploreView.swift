@@ -7,6 +7,7 @@ struct NearbyExploreView: View {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var compassManager = CompassManager()
     @EnvironmentObject var speechManager: SpeechManager
+    @EnvironmentObject var navigationManager: NavigationManager
     
     @State private var places: [Place] = []
     @State private var isLoading = false
@@ -17,6 +18,7 @@ struct NearbyExploreView: View {
     // 마지막으로 안내한 장소 및 시간 (중복 안내 방지)
     @State private var lastAnnouncedPlaceId: UUID?
     @State private var lastAnnouncementTime: Date = Date()
+    @State private var lastAnnouncedPlace: Place? // 현재 시야각 내에 있는 장소
     
     let hapticGenerator = UIImpactFeedbackGenerator(style: .heavy)
     
@@ -71,6 +73,45 @@ struct NearbyExploreView: View {
                     .padding(.vertical, 20)
                 }
                 
+                // 감지된 장소 정보 및 경로 안내 버튼
+                if let place = lastAnnouncedPlace {
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text(place.name)
+                                .dynamicFont(size: 28, weight: .bold)
+                                .foregroundColor(.yellow)
+                                .multilineTextAlignment(.center)
+                            
+                            Text(place.address)
+                                .dynamicFont(size: 16)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        // 경로 안내 시작 버튼 (사용자 요청 반영)
+                        Button(action: {
+                            startGuidance(to: place)
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                                    .font(.title2)
+                                Text("여기로 경로안내 시작")
+                                    .dynamicFont(size: 20, weight: .bold)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.yellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(15)
+                        }
+                        .accessibilityLabel("\(place.name)으로 경로안내 시작")
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(15)
+                    .padding(.horizontal)
+                }
+                
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
                     Text("디지털케인이 활성화되었습니다.\n휴대폰을 천천히 돌려보세요.")
@@ -105,7 +146,10 @@ struct NearbyExploreView: View {
             stopScanning()
         }
         .onChange(of: compassManager.heading) { newHeading in
-            guard isScanningMode, !places.isEmpty, let currentLocation = locationManager.currentLocation else { return }
+            guard isScanningMode, !places.isEmpty, let currentLocation = locationManager.currentLocation else {
+                lastAnnouncedPlace = nil // 스캔 모드가 아니거나 장소가 없으면 감지된 장소 초기화
+                return
+            }
             detectPlaceInDirection(heading: newHeading, currentLocation: currentLocation)
         }
         .onChange(of: locationManager.currentLocation) { location in
@@ -227,7 +271,21 @@ struct NearbyExploreView: View {
         compassManager.stop()
     }
     
-    // 토글 함수 삭제됨 (자동화)
+    // 장소로 길 안내 시작
+    private func startGuidance(to place: Place) {
+        guard let location = locationManager.currentLocation else { return }
+        
+        stopScanning()
+        speechManager.speak("\(place.name)으로 가는 경로를 검색합니다.")
+        
+        // NavigationManager를 통해 직접 경로 검색 시작
+        navigationManager.findRoute(to: place.name, locationManager: locationManager) { error in
+            speechManager.speak(error)
+        }
+        
+        // 탭 자동 전환을 위해 Notification 발송 (ContentView에서 수신)
+        NotificationCenter.default.post(name: NSNotification.Name("SwitchToNavigationTab"), object: nil)
+    }
     
     // 방향 감지 로직
     private func detectPlaceInDirection(heading: Double, currentLocation: CLLocation) {

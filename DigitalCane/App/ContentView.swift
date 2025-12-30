@@ -66,6 +66,9 @@ struct ContentView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .accentColor(.yellow)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToNavigationTab"))) { _ in
+            selectedTab = 1
+        }
         .onChange(of: selectedTab) { _ in
             speechManager.stopSpeaking()
             // 탭 전환 효과음 및 진동
@@ -128,7 +131,17 @@ struct VoiceCommandModeView: View {
                     .padding(.horizontal)
                 
                 // 인식된 텍스트 실시간 표시
-                if !speechManager.transcript.isEmpty {
+                if navigationManager.isLoading {
+                    VStack(spacing: 15) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
+                        Text("경로를 찾는 중입니다...")
+                            .dynamicFont(size: 20, weight: .bold)
+                            .foregroundColor(.yellow)
+                    }
+                    .padding()
+                } else if !speechManager.transcript.isEmpty {
                     VStack(spacing: 10) {
                         Text("인식 중...")
                             .font(.caption)
@@ -137,6 +150,7 @@ struct VoiceCommandModeView: View {
                             .dynamicFont(size: 22)
                             .foregroundColor(.yellow)
                             .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                     }
                     .padding()
                     .background(Color.white.opacity(0.1))
@@ -144,7 +158,7 @@ struct VoiceCommandModeView: View {
                     .padding(.horizontal)
                 }
             }
-            .padding(.bottom, 50) // 하단 탭바 영역 고려
+            .padding(.bottom, 50) 
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle()) // 이 영역을 통해 터치 제스처 감지
@@ -212,77 +226,94 @@ struct NavigationModeView: View {
     @EnvironmentObject var speechManager: SpeechManager
     
     var body: some View {
-        VStack {
-            // 상단 요약 정보
-            Text("경로 요약")
-                .dynamicFont(size: 28, weight: .bold) // 동적 폰트
-                .foregroundColor(.yellow)
-                .padding(.top)
-                .accessibilityAddTraits(.isHeader)
+        VStack(spacing: 0) {
+            // 상단 요약 바
+            VStack(spacing: 5) {
+                Text(navigationManager.routeDestination)
+                    .dynamicFont(size: 24, weight: .bold)
+                    .foregroundColor(.yellow)
+                Text("\(navigationManager.routeOrigin)에서 출발")
+                    .dynamicFont(size: 14)
+                    .foregroundColor(.gray)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.white.opacity(0.05))
             
-            // 전체 단계 리스트 (스크롤 문제 수정 및 안정성을 위해 VStack 사용)
+            // 전단계 리스트는 축소 가능하게 (현재 단계 강조)
             ScrollView {
                 if navigationManager.steps.isEmpty {
-                    Text("경로 정보를 불러오는 중입니다...")
-                        .dynamicFont(size: 18)
-                        .foregroundColor(.gray)
+                    ProgressView()
                         .padding()
                 } else {
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 10) {
                         ForEach(Array(navigationManager.steps.enumerated()), id: \.offset) { index, step in
-                            VStack(alignment: .leading, spacing: 8) {
-                                // 단계 번호와 액션
-                                Text("단계 \(index + 1): \(step.action)")
-                                    .dynamicFont(size: 20, weight: .bold) // 동적 폰트
-                                    .foregroundColor(.yellow)
+                            HStack(alignment: .top, spacing: 15) {
+                                Circle()
+                                    .fill(index == navigationManager.currentStepIndex ? Color.yellow : Color.gray)
+                                    .frame(width: 10, height: 10)
+                                    .padding(.top, 5)
                                 
-                                // 상세 지시
-                                Text(step.instruction)
-                                    .dynamicFont(size: 18) // 동적 폰트
-                                    .foregroundColor(.white)
-                                
-                                // 추가 정보
-                                if !step.detail.isEmpty {
-                                    Text(step.detail)
-                                        .dynamicFont(size: 14) // 동적 폰트
-                                        .foregroundColor(Color(white: 0.8))
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(step.instruction)
+                                        .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 16, 
+                                                    weight: index == navigationManager.currentStepIndex ? .bold : .regular)
+                                        .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
+                                    
+                                    if !step.detail.isEmpty && index == navigationManager.currentStepIndex {
+                                        Text(step.detail)
+                                            .dynamicFont(size: 16)
+                                            .foregroundColor(.yellow.opacity(0.8))
+                                    }
                                 }
-                                
-                                Divider().background(Color.gray.opacity(0.5))
                             }
-                            .padding()
-                            .background(Color.black)
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                            .background(index == navigationManager.currentStepIndex ? Color.yellow.opacity(0.1) : Color.clear)
                             .onTapGesture {
-                                // 일반 터치(저시력/비VoiceOver) 사용자를 위한 음성 안내
-                                let content = "단계 \(index + 1). \(step.instruction). \(step.detail)"
-                                speechManager.speak(content)
+                                navigationManager.currentStepIndex = index
+                                speechManager.speak(step.instruction)
                             }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel("\(step.action). \(step.instruction). 단계 \(index + 1)")
-                            .accessibilityHint(step.detail)
                         }
                     }
+                    .padding(.vertical)
                 }
             }
-            .background(Color.black)
             
-            // 안내 종료 및 새로운 검색 버튼
-            Button(action: {
-                navigationManager.stopNavigation()
-            }) {
-                HStack {
-                    Image(systemName: "mic.fill")
-                    Text("새로운 검색 / 안내 종료")
-                        .dynamicFont(size: 20, weight: .bold) // 동적 폰트
+            // 하단 조작 영역
+            VStack(spacing: 15) {
+                // 다음 단계 대형 버튼 (핵심)
+                Button(action: {
+                    navigationManager.nextStep()
+                    speechManager.speak(navigationManager.currentInstruction)
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title)
+                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내 받기" : "안내 종료 (도착)")
+                            .dynamicFont(size: 24, weight: .bold)
+                    }
+                    .padding(.vertical, 20)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.yellow)
+                    .foregroundColor(.black)
+                    .cornerRadius(20)
                 }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.yellow) // 고대비 강조
-                .foregroundColor(.black)
-                .cornerRadius(15)
+                .accessibilityLabel("다음 단계 안내 버튼")
+                .accessibilityHint("현재 단계 안내를 완료하고 다음 단계 지침을 듣습니다.")
+                
+                // 안내 종료 버튼
+                Button(action: {
+                    navigationManager.stopNavigation()
+                }) {
+                    Text("안내 중단")
+                        .dynamicFont(size: 16, weight: .bold)
+                        .foregroundColor(.gray)
+                }
+                .padding(.bottom, 10)
             }
             .padding()
-            .accessibilityHint("현재 안내를 종료하고, 마이크 화면으로 돌아가 새로운 목적지를 검색합니다.")
+            .background(Color.black)
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
