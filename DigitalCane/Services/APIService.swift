@@ -297,12 +297,67 @@ class APIService {
                 if let route = decodedResponse.routes?.first,
                    let leg = route.legs?.first {
                     
-                    // GRouteStep -> RouteStep 변환
-                    let rawSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
+                    // GRouteStep -> RouteStep 변환 (도보 포함)
+                    let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
+                    
+                    // 도보 통합 로직: 도보 단계를 이전 대중교통 단계에 병합
+                    var mergedSteps: [RouteStep] = []
+                    var pendingWalkInfo: String? = nil
+                    
+                    for step in allSteps {
+                        if step.type == .walk {
+                            // 도보 정보를 저장 (다음 대중교통 단계에 추가)
+                            let walkDistance = step.distance ?? ""
+                            let walkDuration = step.duration ?? ""
+                            if !walkDistance.isEmpty {
+                                if !walkDuration.isEmpty {
+                                    pendingWalkInfo = "도보 \(walkDistance) 이동 (약 \(walkDuration))"
+                                } else {
+                                    pendingWalkInfo = "도보 \(walkDistance) 이동"
+                                }
+                            }
+                        } else {
+                            // 대중교통 단계
+                            var updatedStep = step
+                            
+                            // 이전에 저장된 도보 정보가 있으면 detail 앞에 추가
+                            if let walkInfo = pendingWalkInfo {
+                                let newDetail = walkInfo + (step.detail.isEmpty ? "" : " → " + step.detail)
+                                updatedStep = RouteStep(
+                                    type: step.type,
+                                    instruction: step.instruction,
+                                    detail: newDetail,
+                                    action: step.action,
+                                    stopCount: step.stopCount,
+                                    duration: step.duration,
+                                    distance: step.distance
+                                )
+                                pendingWalkInfo = nil
+                            }
+                            
+                            mergedSteps.append(updatedStep)
+                        }
+                    }
+                    
+                    // 마지막에 남은 도보 정보가 있으면 마지막 단계의 detail에 추가
+                    if let walkInfo = pendingWalkInfo, !mergedSteps.isEmpty {
+                        let lastIndex = mergedSteps.count - 1
+                        let lastStep = mergedSteps[lastIndex]
+                        let newDetail = lastStep.detail.isEmpty ? "하차 후 " + walkInfo : lastStep.detail + " → 하차 후 " + walkInfo
+                        mergedSteps[lastIndex] = RouteStep(
+                            type: lastStep.type,
+                            instruction: lastStep.instruction,
+                            detail: newDetail,
+                            action: lastStep.action,
+                            stopCount: lastStep.stopCount,
+                            duration: lastStep.duration,
+                            distance: lastStep.distance
+                        )
+                    }
                     
                     // 환승 명시화 로직: 마지막 단계가 아니면 "하차" -> "하차 및 환승"으로 변경
-                    let steps = rawSteps.enumerated().map { (index, step) -> RouteStep in
-                        if index < rawSteps.count - 1 {
+                    let steps = mergedSteps.enumerated().map { (index, step) -> RouteStep in
+                        if index < mergedSteps.count - 1 && step.type != .walk {
                             let newInstruction = step.instruction.replacingOccurrences(of: "하차.", with: "하차 및 환승.")
                             return RouteStep(
                                 type: step.type,
