@@ -520,15 +520,20 @@ struct HelpView: View {
             return
         }
         let address = locationManager.currentAddress ?? "알 수 없는 위치"
-        let mapLink = "https://www.google.com/maps/search/?api=1&query=\(location.coordinate.latitude),\(location.coordinate.longitude)"
-        let message = "[디지털케인 긴급 위치 알림]\n내 위치: \(address)\n지도 링크: \(mapLink)"
+        // 더 짧고 직관적인 구글 맵 링크 형식
+        let mapLink = "https://maps.google.com/maps?q=\(location.coordinate.latitude),\(location.coordinate.longitude)"
+        let message = "[디지털케인 긴급 알림]\n내 위치: \(address)\n지도: \(mapLink)"
         
         if !emergencyContact.isEmpty {
             let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
-            if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            
+            // 핵심: body 인코딩 시 특수문자(&, # 등)가 SMS URL 구조를 깨뜨리지 않도록 철저히 인코딩
+            if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
                let url = URL(string: "sms:\(phoneNumber)&body=\(encodedBody)") {
-                UIApplication.shared.open(url)
-                return
+                if UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url)
+                    return
+                }
             }
         }
         
