@@ -663,20 +663,39 @@ class APIService {
             return nil
         }
         
-        // MapKit의 instructions는 이미 한국어로 잘 제공됨
-        // 예: "4호선을 타고 사당역에서 내리세요"
-        let instruction = mkStep.instructions
+        // MapKit의 기본 instructions이 한국어로는 텍스트가 부족할 수 있어 재구성
+        // 예: "4호선을 타고 사당역에서 내리세요" 형태로 변환
         
-        // action 추출 (간단히 instructions의 핵심 부분 사용)
         var action = "이동"
-        if instruction.contains("타고") || instruction.contains("탑승") {
-            // "XXX을 타고" 형태에서 노선명 추출
-            let components = instruction.components(separatedBy: " ")
-            if let lineIndex = components.firstIndex(where: { $0.contains("호선") || $0.contains("번") }) {
-                action = "\(components[lineIndex]) 탑승"
-            } else if components.count > 0 {
-                action = components.prefix(2).joined(separator: " ")
+        var lineName = ""
+        
+        // 핵심 정보 추출 (노선명 등)
+        if mkStep.instructions.contains("타고") || mkStep.instructions.contains("탑승") {
+             let components = mkStep.instructions.components(separatedBy: " ")
+             if let lineIndex = components.firstIndex(where: { $0.contains("호선") || $0.contains("번") }) {
+                 lineName = components[lineIndex]
+                 action = "\(lineName) 탑승"
+             } else {
+                 action = mkStep.instructions
+             }
+        }
+        
+        // 한글 받침 여부 확인 (을/를 구분) - 로컬 함수 재사용
+        func appendJosa(_ text: String) -> String {
+            guard let lastChar = text.last, let scalar = lastChar.unicodeScalars.first else { return text + "을(를)" }
+            let value = scalar.value
+            // 한글 유니코드 범위: 0xAC00 ~ 0xD7A3
+            if value >= 0xAC00 && value <= 0xD7A3 {
+                let hasBatchim = (value - 0xAC00) % 28 > 0
+                return text + (hasBatchim ? "을" : "를")
             }
+            return text + "을(를)"
+        }
+        
+        var instruction = mkStep.instructions
+        if !lineName.isEmpty {
+            let lineWithJosa = appendJosa(lineName)
+            instruction = "\(lineWithJosa) 탑승하여 이동하세요."
         }
         
         let distance = Int(mkStep.distance)
