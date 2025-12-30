@@ -300,61 +300,51 @@ class APIService {
                     // GRouteStep -> RouteStep 변환 (도보 포함)
                     let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
                     
-                    // 도보 통합 로직: 도보 단계를 대중교통 단계에 병합
+                    // 도보 통합 로직: 도보를 이전 대중교통 단계의 "하차 후" 정보로 병합
+                    // 시간순: 탑승 → 탑승 시간 → 하차 후 도보
                     var mergedSteps: [RouteStep] = []
-                    var pendingWalkInfo: String? = nil
                     
                     for (index, step) in allSteps.enumerated() {
                         if step.type == .walk {
-                            // 도보 정보를 저장
+                            // 도보 정보를 이전 대중교통 단계에 "하차 후 환승 도보"로 추가
                             let walkDistance = step.distance ?? ""
                             let walkDuration = step.duration ?? ""
-                            if !walkDistance.isEmpty {
+                            
+                            if !mergedSteps.isEmpty && !walkDistance.isEmpty {
+                                let lastIndex = mergedSteps.count - 1
+                                let lastStep = mergedSteps[lastIndex]
+                                
+                                var walkInfo = walkDistance
                                 if !walkDuration.isEmpty {
-                                    pendingWalkInfo = "\(walkDistance), 약 \(walkDuration)"
-                                } else {
-                                    pendingWalkInfo = walkDistance
+                                    walkInfo += ", 약 \(walkDuration)"
                                 }
+                                
+                                // 마지막 단계인지 확인 (다음에 대중교통이 있는지)
+                                let isLastWalk = (index == allSteps.count - 1) || 
+                                                 !allSteps.dropFirst(index + 1).contains { $0.type != .walk }
+                                
+                                let walkSuffix: String
+                                if isLastWalk {
+                                    walkSuffix = "🚶 하차 후 도보 \(walkInfo) → 도착"
+                                } else {
+                                    walkSuffix = "🚶 하차 후 환승 도보 \(walkInfo)"
+                                }
+                                
+                                let newDetail = lastStep.detail.isEmpty ? walkSuffix : lastStep.detail + "\n" + walkSuffix
+                                mergedSteps[lastIndex] = RouteStep(
+                                    type: lastStep.type,
+                                    instruction: lastStep.instruction,
+                                    detail: newDetail,
+                                    action: lastStep.action,
+                                    stopCount: lastStep.stopCount,
+                                    duration: lastStep.duration,
+                                    distance: lastStep.distance
+                                )
                             }
                         } else {
-                            // 대중교통 단계
-                            var updatedStep = step
-                            
-                            // 이전에 저장된 도보 정보가 있으면 "탑승 전 도보" 형태로 추가
-                            if let walkInfo = pendingWalkInfo {
-                                let walkPrefix = "⚡ 탑승 전 도보 \(walkInfo)"
-                                let newDetail = walkPrefix + (step.detail.isEmpty ? "" : "\n" + step.detail)
-                                updatedStep = RouteStep(
-                                    type: step.type,
-                                    instruction: step.instruction,
-                                    detail: newDetail,
-                                    action: step.action,
-                                    stopCount: step.stopCount,
-                                    duration: step.duration,
-                                    distance: step.distance
-                                )
-                                pendingWalkInfo = nil
-                            }
-                            
-                            mergedSteps.append(updatedStep)
+                            // 대중교통 단계는 그대로 추가
+                            mergedSteps.append(step)
                         }
-                    }
-                    
-                    // 마지막에 남은 도보 정보가 있으면 "하차 후 도보 → 도착" 형태로 추가
-                    if let walkInfo = pendingWalkInfo, !mergedSteps.isEmpty {
-                        let lastIndex = mergedSteps.count - 1
-                        let lastStep = mergedSteps[lastIndex]
-                        let walkSuffix = "🚶 하차 후 도보 \(walkInfo) → 도착"
-                        let newDetail = lastStep.detail.isEmpty ? walkSuffix : lastStep.detail + "\n" + walkSuffix
-                        mergedSteps[lastIndex] = RouteStep(
-                            type: lastStep.type,
-                            instruction: lastStep.instruction,
-                            detail: newDetail,
-                            action: lastStep.action,
-                            stopCount: lastStep.stopCount,
-                            duration: lastStep.duration,
-                            distance: lastStep.distance
-                        )
                     }
                     
                     // 환승 명시화 로직: 마지막 단계가 아니면 "하차" -> "하차 및 환승"으로 변경
@@ -861,16 +851,16 @@ class APIService {
                 instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(arrival)까지 이동 후 하차."
             }
             
-            // 거리 정보 폴백
+            // 탑승 시간 정보 (명확하게 표시)
             let distanceText = gStep.localizedValues?.distance?.text ?? ""
             var detailInfo = ""
             if !duration.isEmpty {
-                detailInfo = "약 \(duration) 소요"
+                detailInfo = "🚌 탑승 시간 약 \(duration)"
                 if !distanceText.isEmpty {
-                    detailInfo += ", \(distanceText)"
+                    detailInfo += " (\(distanceText))"
                 }
             } else if !distanceText.isEmpty {
-                detailInfo = "\(distanceText) 이동"
+                detailInfo = "🚌 \(distanceText) 이동"
             }
             
             return RouteStep(type: .board,
