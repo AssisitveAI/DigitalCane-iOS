@@ -431,44 +431,6 @@ struct SettingsView: View {
     }
 }
 
-import SwiftUI
-import MessageUI
-
-// SMS 전송을 위한 SwiftUI 래퍼
-struct MessageComposeView: UIViewControllerRepresentable {
-    let recipients: [String]
-    let body: String
-    var completion: (MessageComposeResult) -> Void
-
-    func makeUIViewController(context: Context) -> MFMessageComposeViewController {
-        let vc = MFMessageComposeViewController()
-        vc.recipients = recipients
-        vc.body = body
-        vc.messageComposeDelegate = context.coordinator
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: MFMessageComposeViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(completion: completion)
-    }
-
-    class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
-        var completion: (MessageComposeResult) -> Void
-
-        init(completion: @escaping (MessageComposeResult) -> Void) {
-            self.completion = completion
-        }
-
-        func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
-            controller.dismiss(animated: true) {
-                self.completion(result)
-            }
-        }
-    }
-}
-
 // --- 새로운 도움요청 필드 ---
 struct HelpView: View {
     @EnvironmentObject var speechManager: SpeechManager
@@ -477,8 +439,6 @@ struct HelpView: View {
     
     // 유연한 연락처 처리를 위한 상태 변수
     @State private var inputNumber: String = ""
-    @State private var isShowingMessageView = false
-    @State private var messageBody = ""
     
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -581,21 +541,6 @@ struct HelpView: View {
                 inputNumber = emergencyContact
             }
         }
-        .sheet(isPresented: $isShowingMessageView) {
-            MessageComposeView(
-                recipients: [inputNumber.filter { "0123456789".contains($0) }],
-                body: messageBody
-            ) { result in
-                switch result {
-                case .sent:
-                    speechManager.speak("비상 위치 문자가 전송되었습니다.")
-                case .failed:
-                    speechManager.speak("문자 전송에 실패했습니다.")
-                default:
-                    break
-                }
-            }
-        }
     }
     
     // 로직 (입력된 번호 기반으로 동작)
@@ -612,17 +557,20 @@ struct HelpView: View {
         
         let address = locationManager.currentAddress ?? "알 수 없는 위치"
         let mapLink = "https://maps.google.com/maps?q=\(location.coordinate.latitude),\(location.coordinate.longitude)"
+        let message = "[디지털케인 긴급 알림]\n내 위치: \(address)\n지도: \(mapLink)"
         
-        // 메시지 본문 준비
-        self.messageBody = "[디지털케인 긴급 알림]\n내 위치: \(address)\n지도: \(mapLink)"
-        
-        // SMS 가능 여부 확인 후 창 띄우기
-        if MFMessageComposeViewController.canSendText() {
-            self.isShowingMessageView = true
-        } else {
-            let activityVC = UIActivityViewController(activityItems: [messageBody], applicationActivities: nil)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                windowScene.windows.first?.rootViewController?.present(activityVC, animated: true)
+        // 시스템 기본 메시지 앱 호출 (사용자에게 익숙한 환경)
+        let phoneNumber = inputNumber.filter { "0123456789".contains($0) }
+        if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+           let url = URL(string: "sms:\(phoneNumber)&body=\(encodedBody)") {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            } else {
+                // SMS 불가능한 기기일 경우 대체 공유창
+                let activityVC = UIActivityViewController(activityItems: [message], applicationActivities: nil)
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                    windowScene.windows.first?.rootViewController?.present(activityVC, animated: true)
+                }
             }
         }
     }
