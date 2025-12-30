@@ -752,15 +752,31 @@ class APIService {
             let headsign = transit.headsign ?? ""
             stopCount = transit.stopCount ?? 0
             
-            // headsign 검증
+            // 괄호 제거 (TTS 읽기 오류 방지)
             var directionInfo = ""
             if !headsign.isEmpty && headsign.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) != nil {
-                directionInfo = " (\(headsign) 방면)"
+                directionInfo = " \(headsign) 방면으로"
             }
             
             action = "\(lineDisplay) 탑승"
             
-            instruction = "\(departure) 승차. \(lineDisplay) 탑승\(directionInfo). \(stopCount)개 정류장 이동 후 \(arrival)에서 하차."
+            // 한글 받침 여부 확인 (을/를 구분)
+            func appendJosa(_ text: String) -> String {
+                guard let lastChar = text.last, let scalar = lastChar.unicodeScalars.first else { return text + "을(를)" }
+                let value = scalar.value
+                // 한글 유니코드 범위: 0xAC00 ~ 0xD7A3
+                if value >= 0xAC00 && value <= 0xD7A3 {
+                    let hasBatchim = (value - 0xAC00) % 28 > 0
+                    return text + (hasBatchim ? "을" : "를")
+                }
+                return text + "을(를)" // 한글이 아니면 기본값
+            }
+            
+            let lineWithJosa = appendJosa(lineDisplay)
+            
+            // 자연스러운 문장형 복구 (조사 완벽 처리)
+            // 예: "서울역에서 143번 버스를 타고 고속터미널 방면으로 5개 정류장 이동 후 신사역에서 내립니다."
+            instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 내립니다."
             
             // 거리 정보 폴백 (localizedValues.distance)
             let distanceText = gStep.localizedValues?.distance?.text ?? ""

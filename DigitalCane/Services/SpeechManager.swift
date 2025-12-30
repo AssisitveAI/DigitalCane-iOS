@@ -2,6 +2,7 @@ import Foundation
 import Speech
 import AVFoundation
 import SwiftUI
+import AudioToolbox
 
 class SpeechManager: ObservableObject {
     @Published var isRecording = false
@@ -170,5 +171,85 @@ class SpeechManager: ObservableObject {
         // 탭 제거 시 안전 장치
         let inputNode = audioEngine.inputNode
         inputNode.removeTap(onBus: 0)
+    }
+}
+
+// 사운드 매니저 (UI 피드백 통합: 사운드 + 햅틱)
+class SoundManager {
+    static let shared = SoundManager()
+    
+    private init() {}
+    
+    enum SoundType {
+        case click          // 일반 클릭
+        case tabSelection   // 탭 변경
+        case recordingStart // 녹음 시작
+        case recordingEnd   // 녹음 종료
+        case success        // 성공 (경로/장소 발견)
+        case failure        // 실패/에러
+        case finding        // 탐색 중 (방향 감지)
+    }
+    
+    func play(_ type: SoundType) {
+        // 1. 사운드 재생 (시스템 사운드)
+        var soundID: SystemSoundID = 0
+        switch type {
+        case .click:          soundID = 1104
+        case .tabSelection:   soundID = 1103
+        case .recordingStart: soundID = 1113
+        case .recordingEnd:   soundID = 1114
+        case .success:        soundID = 1001 // Mail Sent (Swoosh - Modern)
+        case .failure:        soundID = 1073
+        case .finding:        soundID = 1104 // Tock (Clean & Crisp)
+        }
+        AudioServicesPlaySystemSound(soundID)
+        
+        // 2. 햅틱 피드백 (즉시 실행 및 강도 강화)
+        // 햅틱 엔진은 메인 스레드에서만 동작하므로, 현재 스레드 확인 후 즉시 실행하여 딜레이 제거
+        let hapticBlock = {
+            switch type {
+            case .click, .tabSelection:
+                // Selection(약함) -> Medium(중간)으로 강화
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.prepare()
+                generator.impactOccurred()
+                
+            case .success:
+                // 성공은 명확한 패턴(Success) 유지
+                let generator = UINotificationFeedbackGenerator()
+                generator.prepare()
+                generator.notificationOccurred(.success)
+                
+            case .failure:
+                // 에러 패턴(Error)
+                let generator = UINotificationFeedbackGenerator()
+                generator.prepare()
+                generator.notificationOccurred(.error)
+                
+            case .recordingStart:
+                // Medium -> Heavy(강함)로 강화
+                let generator = UIImpactFeedbackGenerator(style: .heavy)
+                generator.prepare()
+                generator.impactOccurred()
+                
+            case .recordingEnd:
+                // Heavy -> Rigid(매우 단단함)로 강화
+                let generator = UIImpactFeedbackGenerator(style: .rigid)
+                generator.prepare()
+                generator.impactOccurred()
+                
+            case .finding:
+                // 디지털케인 탐색: Light -> Heavy(강함)로 대폭 강화 (확실한 인지)
+                let generator = UIImpactFeedbackGenerator(style: .heavy)
+                generator.prepare()
+                generator.impactOccurred()
+            }
+        }
+        
+        if Thread.isMainThread {
+            hapticBlock()
+        } else {
+            DispatchQueue.main.async(execute: hapticBlock)
+        }
     }
 }

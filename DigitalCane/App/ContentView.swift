@@ -24,45 +24,48 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Main Content Area
+        TabView(selection: $selectedTab) {
+            // Tab 1: 디지털 지팡이 (메인)
+            NearbyExploreView()
+                .tabItem {
+                    Label("디지털케인", systemImage: "magnifyingglass.circle.fill")
+                }
+                .tag(0)
+            
+            // Tab 2: 경로 안내
             ZStack {
-                switch selectedTab {
-                case 0:
-                    NearbyExploreView()
-                case 1:
-                    VStack {
-                        if navigationManager.isNavigating {
-                           NavigationModeView()
-                        } else {
-                           VoiceCommandModeView(onCommit: { text in
-                               navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
-                                   speechManager.speak(errorMessage)
-                               })
+                Color.black.ignoresSafeArea()
+                VStack {
+                    if navigationManager.isNavigating {
+                       NavigationModeView()
+                    } else {
+                       VoiceCommandModeView(onCommit: { text in
+                           navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
+                               speechManager.speak(errorMessage)
+                               SoundManager.shared.play(.failure)
                            })
-                        }
+                        })
                     }
-                case 2:
-                    HelpView()
-                case 3:
-                    SettingsView()
-                default:
-                    EmptyView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // Custom Anchored Tab Bar (4 Tabs)
-            HStack(spacing: 0) {
-                tabButton(title: "디지털케인", icon: "magnifyingglass.circle.fill", index: 0)
-                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
-                tabButton(title: "도움요청", icon: "exclamationmark.triangle.fill", index: 2)
-                tabButton(title: "설정", icon: "gearshape.fill", index: 3)
+            .tabItem {
+                Label("경로안내", systemImage: "bus.fill")
             }
-            .padding(.top, 8)
-            .padding(.bottom, 10) // SE has no home indicator, keep it slim
-            .background(Color.black)
-            .shadow(color: .white.opacity(0.1), radius: 1, x: 0, y: -1)
+            .tag(1)
+            
+            // Tab 3: 도움요청 (SOS)
+            HelpView()
+                .tabItem {
+                    Label("도움요청", systemImage: "exclamationmark.shield.fill")
+                }
+                .tag(2)
+            
+            // Tab 4: 설정
+            SettingsView()
+                .tabItem {
+                    Label("설정", systemImage: "gearshape.fill")
+                }
+                .tag(3)
         }
         .background(Color.black.ignoresSafeArea())
         .accentColor(.yellow)
@@ -70,34 +73,27 @@ struct ContentView: View {
             selectedTab = 1
         }
         .onChange(of: selectedTab) { _ in
+            // 탭 변경 시 즉시 음성 중단 및 햅틱/사운드 피드백
             speechManager.stopSpeaking()
-            // 탭 전환 효과음 및 진동
-            AudioServicesPlaySystemSound(1103)
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
+            // 사운드 매니저 사용 (자동 햅틱 포함)
+            SoundManager.shared.play(.tabSelection)
         }
-    }
-    
-    // Helper view for Custom Tab Buttons
-    private func tabButton(title: String, icon: String, index: Int) -> some View {
-        Button(action: { 
-            // 탭을 누를 때마다 갱신 (특히 디지털케인 탭)
-            if index == 0 {
-                NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
-            }
-            selectedTab = index 
-        }) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 22))
-                Text(title)
-                    .font(.caption2)
-            }
-            .frame(maxWidth: .infinity)
-            .foregroundColor(selectedTab == index ? .yellow : .gray)
+        .onAppear {
+            // 탭바 스타일링 (고대비 & 큰 글씨)
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor.black
+            
+            let itemAppearance = UITabBarItemAppearance()
+            itemAppearance.normal.iconColor = UIColor.gray
+            itemAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray]
+            itemAppearance.selected.iconColor = UIColor.systemYellow
+            itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemYellow]
+            
+            appearance.stackedLayoutAppearance = itemAppearance
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
         }
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(selectedTab == index ? [.isSelected] : [])
     }
 }
 
@@ -192,16 +188,16 @@ struct VoiceCommandModeView: View {
     private func startListening() {
         if !speechManager.isRecording {
             speechManager.startRecording()
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
+            // 햅틱/사운드 피드백 (통합됨)
+            SoundManager.shared.play(.recordingStart)
         }
     }
     
     private func stopListeningAndCommit() {
         if speechManager.isRecording {
             speechManager.stopRecording()
-            let generator = UIImpactFeedbackGenerator(style: .heavy)
-            generator.impactOccurred()
+            // 햅틱/사운드 피드백 (통합됨)
+            SoundManager.shared.play(.recordingEnd)
             
             if !speechManager.transcript.isEmpty {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -214,7 +210,6 @@ struct VoiceCommandModeView: View {
     }
 }
 
-// 경로 안내 모드 (환승 코칭 + TTS)
 // 경로 안내 모드 (리스트 형태 + 요약 안내)
 struct NavigationModeView: View {
     @EnvironmentObject var navigationManager: NavigationManager
@@ -292,7 +287,15 @@ struct NavigationModeView: View {
                                     speechManager.speak(step.instruction)
                                 }
                                 
-                                Divider().background(Color.white.opacity(0.1))
+                                Divider().background(Color.gray.opacity(0.5))
+                            }
+                            .padding()
+                            .background(Color.black)
+                            .onTapGesture {
+                                // 일반 터치(저시력/비VoiceOver) 사용자를 위한 음성 안내
+                                let content = "단계 \(index + 1). \(step.instruction). \(step.detail)"
+                                SoundManager.shared.play(.click)
+                                speechManager.speak(content)
                             }
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel("단계 \(index + 1): \(step.instruction)")
@@ -303,35 +306,15 @@ struct NavigationModeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // 하단 조작 영역 (도움 중단 및 다음 단계)
-            VStack(spacing: 15) {
-                Divider().background(Color.white.opacity(0.2))
-                
-                HStack(spacing: 20) {
-                    Button(action: {
-                        navigationManager.stopNavigation()
-                    }) {
-                        Text("안내 중단")
-                            .dynamicFont(size: 18, weight: .bold)
-                            .foregroundColor(.gray)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(Color.white.opacity(0.05))
-                            .cornerRadius(12)
-                    }
-                    
-                    Button(action: {
-                        navigationManager.nextStep()
-                        speechManager.speak(navigationManager.currentInstruction)
-                    }) {
-                        Text(navigationManager.currentStepIndex < navigationManager.steps.count - 1 ? "다음 안내" : "도착 완료")
-                            .dynamicFont(size: 20, weight: .bold)
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(Color.yellow)
-                            .cornerRadius(12)
-                    }
+            // 안내 종료 및 새로운 검색 버튼
+            Button(action: {
+                SoundManager.shared.play(.click)
+                navigationManager.stopNavigation()
+            }) {
+                HStack {
+                    Image(systemName: "mic.fill")
+                    Text("새로운 검색 / 안내 종료")
+                        .dynamicFont(size: 20, weight: .bold) // 동적 폰트
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -340,6 +323,7 @@ struct NavigationModeView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
+            SoundManager.shared.play(.success)
             announceOverview()
         }
     }
@@ -418,20 +402,6 @@ struct SettingsView: View {
                     .accessibilityHint("켜면 걷는 거리를 줄이는 경로를, 끄면 시간이 가장 적게 걸리는 경로를 찾습니다.")
                 }
                 
-                Section(header: Text("비상 연락처 설정")) {
-                    VStack(alignment: .leading) {
-                        Text("보호자 전화번호")
-                            .dynamicFont(size: 18, weight: .bold)
-                        TextField("010-0000-0000", text: $emergencyContact)
-                            .keyboardType(.phonePad)
-                            .padding(10)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .accessibilityLabel("보호자 연락처 입력창")
-                    .accessibilityHint("길을 잃었을 때 바로 연결할 지인의 번호를 입력하세요.")
-                }
-                
                 Section(header: Text("디지털케인 설정")) {
                     VStack(alignment: .leading) {
                         Text("기본 탐색 반경: \(Int(searchRadius))m")
@@ -466,7 +436,7 @@ struct SettingsView: View {
     }
 }
 
-// --- 새로운 도움요청 필드 ---
+// --- 새로운 도움요청 필드 (복원됨) ---
 struct HelpView: View {
     @EnvironmentObject var speechManager: SpeechManager
     @StateObject private var locationManager = LocationManager()
@@ -479,15 +449,14 @@ struct HelpView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 25) {
                 Text("도움요청")
-                    .font(.largeTitle)
-                    .bold()
+                    .dynamicFont(size: 34, weight: .bold)
                     .foregroundColor(.red)
                     .padding(.top, 20)
                 
                 // --- 연락처 직접 수정 섹션 ---
                 VStack(alignment: .leading, spacing: 8) {
                     Text("연락받을 사람 번호")
-                        .font(.headline)
+                        .dynamicFont(size: 18, weight: .bold)
                         .foregroundColor(.yellow)
                     
                     HStack {
@@ -500,8 +469,8 @@ struct HelpView: View {
                             .cornerRadius(10)
                             .foregroundColor(.white)
                     }
-                    Text("기본 보호자 번호가 입력되어 있습니다.\n다른 사람에게 알려주려면 번호를 수정하세요.")
-                        .font(.caption)
+                    Text("기본 보호자 번호가 입력되어 있습니다. 다른 사람에게 알려주려면 번호를 수정하세요.")
+                        .dynamicFont(size: 14)
                         .foregroundColor(.gray)
                 }
                 .padding(.horizontal)
@@ -513,6 +482,7 @@ struct HelpView: View {
 
                 // 1. 현재 주소 확인
                 Button(action: {
+                    SoundManager.shared.play(.click)
                     if let address = locationManager.currentAddress {
                         speechManager.speak("현재 위치는 \(address)입니다.")
                     } else {
@@ -522,8 +492,7 @@ struct HelpView: View {
                     HStack {
                         Image(systemName: "location.fill")
                         Text(locationManager.currentAddress ?? "위치 확인 중...")
-                            .font(.title3)
-                            .bold()
+                            .dynamicFont(size: 20, weight: .bold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -534,12 +503,14 @@ struct HelpView: View {
                 .padding(.horizontal)
 
                 // 2. SMS 전송
-                Button(action: shareLocation) {
+                Button(action: {
+                    SoundManager.shared.play(.click)
+                    shareLocation()
+                }) {
                     HStack {
                         Image(systemName: "message.fill")
                         Text("보호자에게 SMS 전송")
-                            .font(.title3)
-                            .bold()
+                            .dynamicFont(size: 20, weight: .bold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -550,12 +521,14 @@ struct HelpView: View {
                 .padding(.horizontal)
 
                 // 3. 비상 전화
-                Button(action: callGuardian) {
+                Button(action: {
+                    SoundManager.shared.play(.click)
+                    callGuardian()
+                }) {
                     HStack {
                         Image(systemName: "phone.fill")
                         Text("보호자에게 전화")
-                            .font(.title3)
-                            .bold()
+                            .dynamicFont(size: 20, weight: .bold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding()

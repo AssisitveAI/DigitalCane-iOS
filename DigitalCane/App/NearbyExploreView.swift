@@ -72,7 +72,6 @@ struct NearbyExploreView: View {
                     }
                     .padding(.vertical, 20)
                 }
-                
                 // 감지된 장소 정보 및 경로 안내 버튼
                 if let place = lastAnnouncedPlace {
                     VStack(spacing: 20) {
@@ -106,6 +105,8 @@ struct NearbyExploreView: View {
                         }
                         .accessibilityLabel("\(place.name)으로 경로안내 시작")
                     }
+                    .padding()
+                }
                     .padding()
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(15)
@@ -244,9 +245,12 @@ struct NearbyExploreView: View {
                         // 데이터 수신 즉시 자동 시작
                         self.startScanning()
                         
-                        // VoiceOver 안내
+                        // 효과음 및 안내
+                        SoundManager.shared.play(.success)
                         UIAccessibility.post(notification: .announcement, argument: "디지털케인 활성화. \(fetchedPlaces.count)개 장소 감지됨")
                     } else {
+                        // 장소 없음 사운드
+                        SoundManager.shared.play(.failure)
                         UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
                     }
                 }
@@ -305,9 +309,7 @@ struct NearbyExploreView: View {
         if let (place, _) = bestMatch {
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
-                // 진동과 함께 감지 효과음 재생
-                AudioServicesPlaySystemSound(1057)
-                hapticGenerator.impactOccurred()
+                SoundManager.shared.play(.finding) // 띠링 효과음 + 햅틱
                 speechManager.speak(place.name)
                 
                 lastAnnouncedPlaceId = place.id
