@@ -105,6 +105,7 @@ struct VoiceCommandModeView: View {
             }
             
             Spacer()
+                .frame(height: 80) // 탭바 영역 확보를 위한 하단 여백
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle()) // 전체 화면 터치 영역
