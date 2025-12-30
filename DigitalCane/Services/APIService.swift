@@ -364,7 +364,7 @@ class APIService {
             let search = MKLocalSearch(request: request)
             search.start { response, error in
                 if let error = error {
-                    print("⚠️ MapKit POI Request failed, attempting fallback: \(error.localizedDescription)")
+                    print("ℹ️ Native POI service unavailable, switching to generic search: \(error.localizedDescription)")
                     // 실패 시 범용 검색으로 폴백 시도
                     self.performGenericMapKitSearch(region: region, completion: completion)
                     return
