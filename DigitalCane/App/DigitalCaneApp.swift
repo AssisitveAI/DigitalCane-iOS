@@ -48,13 +48,7 @@ struct DigitalCaneApp: App {
                             // 앱 실행 음성 및 효과음 (약간의 딜레이 후 실행)
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                 // 시작 효과음 (부드러운 알림음, 1001: MailReceived 등 활용 가능하지만 기본적으로 TTS로 충분)
-                                // speechManager.speak("디지털 지팡이를 실행합니다.")
-                                // 시각장애인 사용자를 위한 오디오 로고
-                                
-                                // 시스템 사운드 (선택적)
-                                AudioServicesPlaySystemSound(1001)
-                                
-                                speechManager.speak("디지털 지팡이를 실행합니다.", interrupt: true)
+                                speechManager.speak("디지털케인을 실행합니다.", interrupt: true)
                             }
                             
                             // 2.5초 후 메인 화면으로 전환

@@ -73,7 +73,7 @@ struct NearbyExploreView: View {
                 
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
-                    Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 천천히 돌려보세요.")
+                    Text("디지털케인이 활성화되었습니다.\n휴대폰을 천천히 돌려보세요.")
                         .font(.headline)
                         .foregroundColor(.yellow)
                         .multilineTextAlignment(.center)
@@ -204,7 +204,7 @@ struct NearbyExploreView: View {
                         self.startScanning()
                         
                         // VoiceOver 안내
-                        UIAccessibility.post(notification: .announcement, argument: "디지털 지팡이 활성화. \(fetchedPlaces.count)개 장소 감지됨")
+                        UIAccessibility.post(notification: .announcement, argument: "디지털케인 활성화. \(fetchedPlaces.count)개 장소 감지됨")
                     } else {
                         UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
                     }

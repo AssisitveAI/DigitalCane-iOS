@@ -397,7 +397,7 @@ struct SettingsView: View {
                     .accessibilityHint("길을 잃었을 때 바로 연결할 지인의 번호를 입력하세요.")
                 }
                 
-                Section(header: Text("디지털 지팡이 설정")) {
+                Section(header: Text("디지털케인 설정")) {
                     VStack(alignment: .leading) {
                         Text("기본 탐색 반경: \(Int(searchRadius))m")
                             .dynamicFont(size: 18)
