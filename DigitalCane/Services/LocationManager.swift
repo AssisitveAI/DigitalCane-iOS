@@ -5,6 +5,7 @@ import Combine
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     
+    @Published var currentLocation: CLLocation?
     @Published var currentAddress: String? // 현재 주소 (역지오코딩 결과)
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     

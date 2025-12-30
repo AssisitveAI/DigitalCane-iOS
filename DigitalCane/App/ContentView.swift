@@ -569,7 +569,7 @@ struct HelpView: View {
         
         // 시스템 기본 메시지 앱 호출 (사용자에게 익숙한 환경)
         let phoneNumber = inputNumber.filter { "0123456789".contains($0) }
-        if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+        if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics),
            let url = URL(string: "sms:\(phoneNumber)&body=\(encodedBody)") {
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
