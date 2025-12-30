@@ -363,9 +363,15 @@ class APIService {
             
             let search = MKLocalSearch(request: request)
             search.start { response, error in
-                guard let response = response, error == nil else {
-                    print("MapKit POI Error: \(error?.localizedDescription ?? "Unknown")")
-                    completion(nil, error?.localizedDescription)
+                if let error = error {
+                    print("⚠️ MapKit POI Request failed, attempting fallback: \(error.localizedDescription)")
+                    // 실패 시 범용 검색으로 폴백 시도
+                    self.performGenericMapKitSearch(region: region, completion: completion)
+                    return
+                }
+                
+                guard let response = response else {
+                    self.performGenericMapKitSearch(region: region, completion: completion)
                     return
                 }
                 
@@ -378,32 +384,39 @@ class APIService {
                     )
                 }
                 
-                print("✅ [Native MapKit] 주변 장소 \(places.count)개 검색됨")
+                print("✅ [Native MapKit] POI API로 \(places.count)개 검색됨")
                 completion(places, nil)
             }
         } else {
-            // 하위 버전 대응 (MKLocalSearch.Request 활용)
-            let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = "주변" 
-            request.region = region
-            
-            let search = MKLocalSearch(request: request)
-            search.start { response, error in
-                guard let response = response, error == nil else {
-                    completion(nil, error?.localizedDescription)
-                    return
-                }
-                
-                let places = response.mapItems.map { item -> Place in
-                    Place(
-                        name: item.name ?? "장소",
-                        address: item.placemark.title ?? "",
-                        types: [], 
-                        coordinate: item.placemark.coordinate
-                    )
-                }
-                completion(places, nil)
+            self.performGenericMapKitSearch(region: region, completion: completion)
+        }
+    }
+    
+    /// MapKit 범용 검색 폴백 함수 (가장 안정적임)
+    private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
+        let request = MKLocalSearch.Request()
+        // 한국에서는 '가까운' 혹은 '시설' 같은 키워드가 범상하게 잘 작동함
+        request.naturalLanguageQuery = "장소" 
+        request.region = region
+        
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            guard let response = response, error == nil else {
+                print("❌ MapKit Fallback failed: \(error?.localizedDescription ?? "Unknown")")
+                completion(nil, error?.localizedDescription)
+                return
             }
+            
+            let places = response.mapItems.map { item -> Place in
+                Place(
+                    name: item.name ?? "장소",
+                    address: item.placemark.title ?? "",
+                    types: [], 
+                    coordinate: item.placemark.coordinate
+                )
+            }
+            print("✅ [MapKit Fallback] 범용 검색으로 \(places.count)개 검색 성공")
+            completion(places, nil)
         }
     }
     

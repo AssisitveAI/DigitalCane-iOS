@@ -116,10 +116,12 @@ class SpeechManager: ObservableObject {
             }
         }
         
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, when) in
-            // 빈 버퍼가 들어오면 크래시가 발생할 수 있으므로 체크 (mDataByteSize error fix)
-            if buffer.frameLength > 0 {
+            // 빈 버퍼 데이터 체크 (mDataByteSize 0 에러 방지 방어 코드 강화)
+            guard buffer.frameLength > 0 else { return }
+            
+            if let firstBuffer = buffer.audioBufferList.pointee.mBuffers.mData,
+               buffer.audioBufferList.pointee.mBuffers.mDataByteSize > 0 {
                 self.recognitionRequest?.append(buffer)
             }
         }
