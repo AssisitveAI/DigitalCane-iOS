@@ -343,8 +343,71 @@ class APIService {
         }.resume()
     }
     
-    // MARK: - 3. Nearby Places Search (Google Places API v1)
-    // MARK: - 3. Nearby Places Search (Google Places API v1)
+    // MARK: - 3. Nearby Places Search (Native MapKit Version)
+    /// 애플 기본 프레임워크(MapKit)를 사용한 주변 장소 검색
+    func fetchNearbyPlacesMapKit(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        
+        // 검색 범위 설정
+        let region = MKCoordinateRegion(
+            center: coordinate,
+            latitudinalMeters: radius * 2,
+            longitudinalMeters: radius * 2
+        )
+        
+        // iOS 14+ 에서 지원하는 POI 전용 검색 요청
+        if #available(iOS 14.0, *) {
+            let request = MKLocalPointsOfInterestRequest(coordinateRegion: region)
+            // 모든 카테고리 포함
+            request.pointOfInterestFilter = .includingAll
+            
+            let search = MKLocalSearch(request: request)
+            search.start { response, error in
+                guard let response = response, error == nil else {
+                    print("MapKit POI Error: \(error?.localizedDescription ?? "Unknown")")
+                    completion(nil, error?.localizedDescription)
+                    return
+                }
+                
+                let places = response.mapItems.map { item -> Place in
+                    Place(
+                        name: item.name ?? "장소",
+                        address: item.placemark.title ?? "",
+                        types: [], 
+                        coordinate: item.placemark.coordinate
+                    )
+                }
+                
+                print("✅ [Native MapKit] 주변 장소 \(places.count)개 검색됨")
+                completion(places, nil)
+            }
+        } else {
+            // 하위 버전 대응 (MKLocalSearch.Request 활용)
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = "주변" 
+            request.region = region
+            
+            let search = MKLocalSearch(request: request)
+            search.start { response, error in
+                guard let response = response, error == nil else {
+                    completion(nil, error?.localizedDescription)
+                    return
+                }
+                
+                let places = response.mapItems.map { item -> Place in
+                    Place(
+                        name: item.name ?? "장소",
+                        address: item.placemark.title ?? "",
+                        types: [], 
+                        coordinate: item.placemark.coordinate
+                    )
+                }
+                completion(places, nil)
+            }
+        }
+    }
+    
+    // MARK: - 4. Nearby Places Search (Google Places API v1)
     func fetchNearbyPlaces(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
         print("🔍 [NearbyPlaces] Requesting places at: (\(latitude), \(longitude)), radius: \(radius)m")
         

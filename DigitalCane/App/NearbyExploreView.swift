@@ -184,8 +184,8 @@ struct NearbyExploreView: View {
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
         
-        // Google Places API (안정적, 풍부한 POI 데이터)
-        APIService.shared.fetchNearbyPlaces(
+        // 애플 네이티브 MapKit 기반 주변 장소 검색 (무료, 개인정보 보호, 한국 최적화)
+        APIService.shared.fetchNearbyPlacesMapKit(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
             radius: searchRadius
@@ -196,10 +196,8 @@ struct NearbyExploreView: View {
                 if let fetchedPlaces = fetchedPlaces {
                     self.places = fetchedPlaces
                     
-                    print("✅ [Google Places] 주변 장소 \(fetchedPlaces.count)개 검색됨")
+                    print("✅ [Native MapKit] 주변 장소 \(fetchedPlaces.count)개 검색됨")
                     if !fetchedPlaces.isEmpty {
-                        print("📍 Places: \(fetchedPlaces.prefix(5).map { $0.name })")
-                        
                         // 데이터 수신 즉시 자동 시작
                         self.startScanning()
                         
@@ -211,7 +209,7 @@ struct NearbyExploreView: View {
                 }
                 
                 if let errorMsg = errorMsg {
-                    print("❌ Fetch Error: \(errorMsg)")
+                    print("❌ MapKit Fetch Error: \(errorMsg)")
                     UIAccessibility.post(notification: .announcement, argument: "주변 장소를 찾을 수 없습니다")
                 }
             }
