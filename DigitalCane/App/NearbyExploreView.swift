@@ -14,6 +14,7 @@ struct NearbyExploreView: View {
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
     @State private var isVisible = false // 화면 표시 여부 추가
+    @State private var isScanningMode = false // 스캔 모드 활성화 여부
     
     // 마지막으로 안내한 장소 및 시간 (중복 안내 방지)
     @State private var lastAnnouncedPlaceId: UUID?
