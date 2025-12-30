@@ -90,7 +90,7 @@ class SpeechManager: ObservableObject {
         let audioSession = AVAudioSession.sharedInstance()
         do {
             // 녹음 및 재생 모드, 스피커 출력 강제
-            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             print("Audio Session Setup Error: \(error)")
