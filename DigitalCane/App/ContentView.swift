@@ -8,69 +8,67 @@ struct ContentView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Tab 1: 디지털 지팡이 (메인)
+        VStack(spacing: 0) {
+            // 1. 메인 콘텐츠 영역 (화면 상단부터 탭바 직전까지)
             ZStack {
-                Color.black.ignoresSafeArea()
-                NearbyExploreView()
-            }
-            // ZStack 전체 .ignoresSafeArea 제거 -> 콘텐츠는 안전 영역 준수 (탭바 위까지)
-            .tabItem {
-                Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
-            }
-            .tag(0)
-            
-            // Tab 2: 경로 안내
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack {
-                    if navigationManager.isNavigating {
-                       NavigationModeView()
-                    } else {
-                       VoiceCommandModeView(onCommit: { text in
-                           navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
-                               speechManager.speak(errorMessage)
+                switch selectedTab {
+                case 0:
+                    NearbyExploreView()
+                case 1:
+                    VStack {
+                        if navigationManager.isNavigating {
+                           NavigationModeView()
+                        } else {
+                           VoiceCommandModeView(onCommit: { text in
+                               navigationManager.findRoute(to: text, locationManager: locationManager, onFailure: { errorMessage in
+                                   speechManager.speak(errorMessage)
+                               })
                            })
-                       })
+                        }
                     }
+                    .background(Color.black)
+                case 2:
+                    SettingsView()
+                default:
+                    EmptyView()
                 }
             }
-            // ZStack 전체에 대한 ignoresSafeArea 제거 -> 콘텐츠는 Safe Area 준수 (탭바 위까지 자동 확장)
-            .tabItem {
-                Label("경로 안내", systemImage: "bus.fill")
-            }
-            .tag(1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Tab 3: 설정
-            SettingsView()
-                .tabItem {
-                    Label("설정", systemImage: "gearshape.fill")
-                }
-                .tag(2)
+            // 2. 물리적 랜드마크 탭바 (화면 최하단 고정)
+            HStack(spacing: 0) {
+                tabButton(title: "지팡이", icon: "magnifyingglass.circle.fill", index: 0)
+                tabButton(title: "경로안내", icon: "bus.fill", index: 1)
+                tabButton(title: "설정", icon: "gearshape.fill", index: 2)
+            }
+            .padding(.top, 12) // 버튼 위 여백
+            .padding(.bottom, 20) // 하단 베젤/홈 인디케이터 영역 (터치 오류 방지 및 그립감 확보)
+            .background(Color.black) // 불투명 배경으로 확실한 경계 제공
         }
-        .accentColor(.yellow)
+        .ignoresSafeArea(.keyboard) 
+        .edgesIgnoringSafeArea(.bottom) // 탭바 배경을 화면 물리적 끝까지 확장
         .onChange(of: selectedTab) { _ in
-            // 탭 변경 시 즉시 음성 중단 및 햅틱 피드백
             speechManager.stopSpeaking()
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
         }
-        .onAppear {
-            // 탭바를 불투명한 검은색으로 설정하여 하단에 딱 붙어있는 느낌을 줌 (System Standard)
-            let appearance = UITabBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = .black
-            
-            // 아이콘 및 텍스트 색상 (선택 안됨: 회색, 선택됨: 노란색)
-            appearance.stackedLayoutAppearance.normal.iconColor = .gray
-            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray]
-            
-            appearance.stackedLayoutAppearance.selected.iconColor = .systemYellow
-            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemYellow]
-            
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+    
+    // 커스텀 탭 버튼
+    private func tabButton(title: String, icon: String, index: Int) -> some View {
+        Button(action: { selectedTab = index }) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                Text(title)
+                    .font(.caption)
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundColor(selectedTab == index ? .yellow : .gray)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selectedTab == index ? [.isButton, .isSelected] : [.isButton])
     }
 }
 

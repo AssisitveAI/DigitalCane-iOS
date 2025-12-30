@@ -10,6 +10,34 @@ struct DigitalCaneApp: App {
     // 스플래시 화면 상태
     @State private var isShowingSplash = true
     
+    init() {
+        // 앱 시작 시 전역 UI 스타일 설정 (탭바 등)
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .black
+        appearance.shadowColor = nil // 그림자 제거 (깔끔한 경계)
+        
+        // 아이콘 및 텍스트 색상
+        let normalColor = UIColor.gray
+        let selectedColor = UIColor.systemYellow
+        
+        appearance.stackedLayoutAppearance.normal.iconColor = normalColor
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: normalColor]
+        
+        appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: selectedColor]
+        
+        // 모든 상태에 대해 동일하게 적용
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        // 레거시 속성 강제 적용 (불투명 보장)
+        UITabBar.appearance().isTranslucent = false
+        
+        if #available(iOS 15.0, *) {
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             ZStack {

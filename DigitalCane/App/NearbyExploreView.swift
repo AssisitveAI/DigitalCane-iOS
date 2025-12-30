@@ -87,7 +87,7 @@ struct NearbyExploreView: View {
             
             Spacer()
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.black)
         .onAppear {
             // 화면 진입 시 자동 검색 시작
             if places.isEmpty {
