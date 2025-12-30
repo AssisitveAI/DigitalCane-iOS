@@ -149,8 +149,11 @@ struct VoiceCommandModeView: View {
                 .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다" : "마이크 버튼")
                 
                 // 안내 텍스트
-                Text(speechManager.isRecording ? "듣고 있습니다..." : "출발지와 목적지를 말씀해 주세요.\n출발지를 말하지 않으면\n현위치를 중심으로 안내합니다.")
+                Text(speechManager.isRecording ? "듣고 있습니다..." : "출발지와 목적지를 말씀해 주세요. 출발지를 말하지 않으면 현위치를 중심으로 안내합니다.")
                     .dynamicFont(size: 24, weight: .bold)
+                    .lineLimit(nil)
+                    .minimumScaleFactor(0.5)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
@@ -168,6 +171,8 @@ struct VoiceCommandModeView: View {
                     } else if !speechManager.transcript.isEmpty {
                         Text("\"\(speechManager.transcript)\"")
                             .dynamicFont(size: 22)
+                            .lineLimit(nil)
+                            .minimumScaleFactor(0.7)
                             .foregroundColor(.yellow)
                             .multilineTextAlignment(.center)
                             .padding()
@@ -288,6 +293,9 @@ struct NavigationModeView: View {
                                             Text(step.instruction)
                                                 .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 18, 
                                                             weight: index == navigationManager.currentStepIndex ? .bold : .medium)
+                                                .lineLimit(nil)
+                                                .minimumScaleFactor(0.7)
+                                                .fixedSize(horizontal: false, vertical: true)
                                                 .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
                                             
                                             if !step.detail.isEmpty {
