@@ -4,8 +4,8 @@ import AVFoundation
 struct ContentView: View {
     @EnvironmentObject var speechManager: SpeechManager
     @EnvironmentObject var navigationManager: NavigationManager
-    // 위치 관리자 추가 (전역 혹은 최상위 뷰에서 관리)
-    @StateObject private var locationManager = LocationManager()
+    // 위치 관리자: 전역 EnvironmentObject 사용 (싱글톤 패턴)
+    @EnvironmentObject var locationManager: LocationManager
     @State private var selectedTab = 0
     
     init() {
@@ -439,7 +439,7 @@ struct SettingsView: View {
 // --- 새로운 도움요청 필드 (복원됨) ---
 struct HelpView: View {
     @EnvironmentObject var speechManager: SpeechManager
-    @StateObject private var locationManager = LocationManager()
+    @EnvironmentObject var locationManager: LocationManager // 전역 사용
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
     
     // 유연한 연락처 처리를 위한 상태 변수

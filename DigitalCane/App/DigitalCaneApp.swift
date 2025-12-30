@@ -6,6 +6,7 @@ struct DigitalCaneApp: App {
     // 앱 전체에서 공유할 상태 관리자들
     @StateObject private var speechManager = SpeechManager()
     @StateObject private var navigationManager = NavigationManager()
+    @StateObject private var locationManager = LocationManager() // 위치 관리자 전역화
     
     // 스플래시 화면 상태
     @State private var isShowingSplash = true
@@ -64,6 +65,7 @@ struct DigitalCaneApp: App {
                     ContentView()
                         .environmentObject(speechManager)
                         .environmentObject(navigationManager)
+                        .environmentObject(locationManager) // 전역 위치 관리자 주입
                         .onAppear {
                             // 앱 시작 시 필요한 권한 요청 등을 수행
                             requestPermissions()

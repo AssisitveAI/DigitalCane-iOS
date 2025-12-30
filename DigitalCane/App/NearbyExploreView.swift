@@ -4,7 +4,7 @@ import MapKit
 import AVFoundation
 
 struct NearbyExploreView: View {
-    @StateObject private var locationManager = LocationManager()
+    @EnvironmentObject var locationManager: LocationManager // 전역 사용
     @StateObject private var compassManager = CompassManager()
     @EnvironmentObject var speechManager: SpeechManager
     @EnvironmentObject var navigationManager: NavigationManager
