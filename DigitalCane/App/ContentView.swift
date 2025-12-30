@@ -32,7 +32,7 @@ struct ContentView: View {
                 }
                 .tag(0)
             
-            // Tab 2: 경로 안내
+            // Tab 2: 대중교통경로안내
             ZStack {
                 Color.black.ignoresSafeArea()
                 VStack {
@@ -49,7 +49,7 @@ struct ContentView: View {
                 }
             }
             .tabItem {
-                Label("경로안내", systemImage: "bus.fill")
+                Label("대중교통경로안내", systemImage: "bus.fill")
             }
             .tag(1)
             
@@ -84,7 +84,7 @@ struct ContentView: View {
             case 0: // 디지털케인 (주변 탐색)
                 navigationManager.stopNavigation() // 경로 안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
-            case 1: // 경로 안내
+            case 1: // 대중교통경로안내
                 // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
                 navigationManager.stopNavigation()
             case 2: // 도움 요청 (SOS)
