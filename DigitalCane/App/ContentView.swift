@@ -82,8 +82,8 @@ struct ContentView: View {
             case 0: // 디지털케인 (주변 탐색)
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
             case 1: // 경로 안내
-                 // 경로 안내 탭 진입 시 필요한 리셋 로직이 있다면 추가
-                 break 
+                 // 탭 진입 시 이전 경로 정보 초기화 (새로운 검색 준비)
+                 navigationManager.stopNavigation()
             case 2: // 도움 요청 (SOS)
                  NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
             default:
