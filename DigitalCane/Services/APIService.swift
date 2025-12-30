@@ -384,64 +384,74 @@ class APIService {
         }
     }
     
-    /// MapKit 범용 검색 폴백 함수 (카테고리 검색으로 데이터 부족 극복)
+    /// MapKit 범용 검색 폴백 (병렬 카테고리 검색으로 검색량 극대화)
     private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
-        let request = MKLocalSearch.Request()
-        request.region = region
+        // 그룹별 카테고리 정의 (한국 내 POI 밀도를 높이기 위해 분산 검색)
+        let categoryGroups: [[MKPointOfInterestCategory]] = [
+            [.restaurant, .cafe, .bakery, .brewery], // Food & Drink
+            [.store, .pharmacy, .bank, .atm, .postOffice], // Shopping & Services
+            [.publicTransport, .gasStation, .parking, .evCharger], // Transportation
+            [.hospital, .park, .museum, .landmark, .library, .school] // Social & Attractions
+        ]
         
-        // 1. 사용자 의견 반영: 필터를 비운 '전체 검색' 시도 (가장 관대함)
-        // 한국에서는 카테고리보다 빈 쿼리나 단순 점(.)이 더 잘 작동할 때가 있음
-        request.naturalLanguageQuery = "주변" 
+        var allFoundPlaces: [Place] = []
+        let dispatchGroup = DispatchGroup()
+        let lock = NSLock()
         
-        if #available(iOS 13.0, *) {
-            // 필터를 명시적으로 nil로 설정하여 제약 해제
-            request.pointOfInterestFilter = nil
-            request.resultTypes = .pointOfInterest
-        }
+        print("🚀 [Multi-Category Search] 고밀도 주변 탐색 시작...")
         
-        let search = MKLocalSearch(request: request)
-        search.start { response, error in
-            if let error = error {
-                print("⚠️ Wildcard search failed, trying categorical fallback: \(error.localizedDescription)")
-                self.performCategoricalFallbackSearch(region: region, completion: completion)
-                return
+        for group in categoryGroups {
+            dispatchGroup.enter()
+            let request = MKLocalSearch.Request()
+            request.region = region
+            request.naturalLanguageQuery = " " // 전범위 검색 유도
+            if #available(iOS 13.0, *) {
+                request.pointOfInterestFilter = MKPointOfInterestFilter(including: group)
+                request.resultTypes = .pointOfInterest
             }
             
-            guard let response = response, !response.mapItems.isEmpty else {
-                self.performCategoricalFallbackSearch(region: region, completion: completion)
-                return
+            let search = MKLocalSearch(request: request)
+            search.start { response, error in
+                if let response = response {
+                    let places = self.mapItemsToPlaces(response.mapItems)
+                    lock.lock()
+                    allFoundPlaces.append(contentsOf: places)
+                    lock.unlock()
+                }
+                dispatchGroup.leave()
             }
-            
-            let places = self.mapItemsToPlaces(response.mapItems)
-            print("✅ [Wildcard Search] \(places.count)개 장소 발견")
-            completion(places, nil)
-        }
-    }
-    
-    /// 최종 보루: 명시적 카테고리 기반 검색
-    private func performCategoricalFallbackSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
-        let request = MKLocalSearch.Request()
-        request.region = region
-        request.naturalLanguageQuery = "장소"
-        
-        if #available(iOS 13.0, *) {
-            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
-                .restaurant, .cafe, .store, .publicTransport, .hospital, .pharmacy, .bank, .atm, .postOffice, .gasStation
-            ])
-            request.resultTypes = .pointOfInterest
         }
         
-        let search = MKLocalSearch(request: request)
-        search.start { response, error in
-            guard let response = response, error == nil else {
-                print("❌ Native MapKit completely failed in this region: \(error?.localizedDescription ?? "Empty")")
-                completion(nil, error?.localizedDescription)
-                return
+        // 추가로 '와일드카드' 검색 하나 더 병행
+        dispatchGroup.enter()
+        let wildcardRequest = MKLocalSearch.Request()
+        wildcardRequest.region = region
+        wildcardRequest.naturalLanguageQuery = "주변"
+        MKLocalSearch(request: wildcardRequest).start { response, error in
+            if let response = response {
+                let places = self.mapItemsToPlaces(response.mapItems)
+                lock.lock()
+                allFoundPlaces.append(contentsOf: places)
+                lock.unlock()
+            }
+            dispatchGroup.leave()
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            // 중복 제거 (이름과 좌표 기준)
+            var uniquePlaces: [Place] = []
+            var seenNames = Set<String>()
+            
+            for place in allFoundPlaces {
+                let key = "\(place.name)-\(place.coordinate.latitude)-\(place.coordinate.longitude)"
+                if !seenNames.contains(key) {
+                    uniquePlaces.append(place)
+                    seenNames.insert(key)
+                }
             }
             
-            let places = self.mapItemsToPlaces(response.mapItems)
-            print("✅ [Categorical Fallback] \(places.count)개 장소 발견")
-            completion(places, nil)
+            print("✅ [Multi-Category Search] 최종 \(uniquePlaces.count)개 장소 통합 발견")
+            completion(uniquePlaces, nil)
         }
     }
     
