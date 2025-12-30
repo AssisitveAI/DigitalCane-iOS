@@ -14,7 +14,7 @@ struct ContentView: View {
                 Color.black.ignoresSafeArea()
                 NearbyExploreView()
             }
-            .ignoresSafeArea() // 콘텐츠영역도 전체 화면으로 확장
+            // ZStack 전체 .ignoresSafeArea 제거 -> 콘텐츠는 안전 영역 준수 (탭바 위까지)
             .tabItem {
                 Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
             }
@@ -35,7 +35,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .ignoresSafeArea() // 전체 화면 채우기 (iPhone SE 등 하단 여백 방지)
+            // ZStack 전체에 대한 ignoresSafeArea 제거 -> 콘텐츠는 Safe Area 준수 (탭바 위까지 자동 확장)
             .tabItem {
                 Label("경로 안내", systemImage: "bus.fill")
             }
@@ -56,9 +56,18 @@ struct ContentView: View {
             generator.impactOccurred()
         }
         .onAppear {
-            // iOS 표준 탭바 스타일 사용 (시스템 기본 반투명 효과 및 접근성 기능 자동 지원)
+            // 탭바를 불투명한 검은색으로 설정하여 하단에 딱 붙어있는 느낌을 줌 (System Standard)
             let appearance = UITabBarAppearance()
-            appearance.configureWithDefaultBackground()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = .black
+            
+            // 아이콘 및 텍스트 색상 (선택 안됨: 회색, 선택됨: 노란색)
+            appearance.stackedLayoutAppearance.normal.iconColor = .gray
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray]
+            
+            appearance.stackedLayoutAppearance.selected.iconColor = .systemYellow
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemYellow]
+            
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }
@@ -106,7 +115,6 @@ struct VoiceCommandModeView: View {
             }
             
             Spacer()
-                .frame(height: 80) // 탭바 영역 확보를 위한 하단 여백
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle()) // 전체 화면 터치 영역
@@ -243,7 +251,6 @@ struct NavigationModeView: View {
                 .cornerRadius(15)
             }
             .padding()
-            .padding(.bottom, 100) // 탭바 높이(약 50~83pt)를 충분히 고려하여 버튼을 위로 올림
             .accessibilityHint("현재 안내를 종료하고, 마이크 화면으로 돌아가 새로운 목적지를 검색합니다.")
         }
         .background(Color.black.ignoresSafeArea())

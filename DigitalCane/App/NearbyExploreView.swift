@@ -86,7 +86,6 @@ struct NearbyExploreView: View {
             }
             
             Spacer()
-                .frame(height: 80) // 탭바 영역 확보 및 전체 화면 활용을 위한 하단 여백
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
