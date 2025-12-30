@@ -10,11 +10,14 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             // Tab 1: 디지털 지팡이 (메인)
-            NearbyExploreView()
-                .tabItem {
-                    Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
-                }
-                .tag(0)
+            ZStack {
+                Color.black.ignoresSafeArea()
+                NearbyExploreView()
+            }
+            .tabItem {
+                Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
+            }
+            .tag(0)
             
             // Tab 2: 경로 안내
             ZStack {
@@ -31,6 +34,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .ignoresSafeArea() // 전체 화면 채우기 (iPhone SE 등 하단 여백 방지)
             .tabItem {
                 Label("경로 안내", systemImage: "bus.fill")
             }
@@ -51,25 +55,9 @@ struct ContentView: View {
             generator.impactOccurred()
         }
         .onAppear {
-            // 탭바 스타일링 (고대비 & 큰 글씨)
+            // iOS 표준 탭바 스타일 사용 (시스템 기본 반투명 효과 및 접근성 기능 자동 지원)
             let appearance = UITabBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor.black
-            
-            // 폰트 크기 키우기
-            let fontAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 18, weight: .bold)]
-            
-            let itemAppearance = UITabBarItemAppearance()
-            itemAppearance.selected.iconColor = .systemYellow
-            itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemYellow].merging(fontAttributes) { (current, _) in current }
-            
-            itemAppearance.normal.iconColor = .gray
-            itemAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.gray].merging(fontAttributes) { (current, _) in current }
-            
-            appearance.stackedLayoutAppearance = itemAppearance
-            appearance.inlineLayoutAppearance = itemAppearance
-            appearance.compactInlineLayoutAppearance = itemAppearance
-            
+            appearance.configureWithDefaultBackground()
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }
@@ -253,6 +241,7 @@ struct NavigationModeView: View {
                 .cornerRadius(15)
             }
             .padding()
+            .padding(.bottom, 20) // 탭바/안전 영역 가림 방지 여백
             .accessibilityHint("현재 안내를 종료하고, 마이크 화면으로 돌아가 새로운 목적지를 검색합니다.")
         }
         .background(Color.black.ignoresSafeArea())

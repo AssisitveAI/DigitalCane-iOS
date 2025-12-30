@@ -61,9 +61,17 @@ class SpeechManager: ObservableObject {
         synthesizer.speak(utterance)
     }
     
+    // 시스템 효과음 재생 헬퍼
+    private func playSound(_ systemSoundID: SystemSoundID) {
+        AudioServicesPlaySystemSound(systemSoundID)
+    }
+    
     // 녹음 시작
     func startRecording() {
         guard permissionGranted else { return }
+        
+        // 듣기 시작 효과음 (Begin Record)
+        playSound(1113)
         
         // 말하기 중단
         if synthesizer.isSpeaking {
@@ -100,7 +108,8 @@ class SpeechManager: ObservableObject {
             }
             
             if error != nil || (result?.isFinal ?? false) {
-                self.stopRecording()
+                // 내부 호출이 아닌 경우에만 stopRecording 호출 (무한 루프 방지)
+                if self.isRecording { self.stopRecording() }
             }
         }
         
@@ -125,12 +134,17 @@ class SpeechManager: ObservableObject {
     
     // 녹음 중지
     func stopRecording() {
-        audioEngine.stop()
-        inputNodeRemoveTap()
-        recognitionRequest?.endAudio()
-        isRecording = false
-        
-        print("Final Transcript: \(self.transcript)")
+        if isRecording {
+            audioEngine.stop()
+            inputNodeRemoveTap()
+            recognitionRequest?.endAudio()
+            isRecording = false
+            
+            // 종료 효과음 (End Record)
+            playSound(1114)
+            
+            print("Final Transcript: \(self.transcript)")
+        }
     }
     
     private func inputNodeRemoveTap() {
