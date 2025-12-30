@@ -378,19 +378,19 @@ struct NavigationModeView: View {
         // 대중교통 탑승 횟수 계산 (walk 제외)
         let transitCount = navigationManager.steps.filter { $0.type != .walk }.count
         
-        var message = "\(dest)까지 경로 안내를 시작합니다. "
-        message += "총 소요 시간 \(totalDuration), 거리 \(totalDistance). "
+        var message = "\(dest)까지 가는 방법을 안내해 드릴게요. "
+        message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "
         
         if transitCount > 0 {
             message += "대중교통 \(transitCount)회 탑승"
             if totalStops > 0 {
-                message += "으로 \(totalStops)개 정류장을 지나갑니다. "
+                message += ", \(totalStops)개 정류장을 지나갑니다. "
             } else {
                 message += "합니다. "
             }
         }
         
-        message += "총 \(totalSteps)단계의 상세 안내가 준비되었습니다. 화면을 터치하여 각 단계를 확인하세요."
+        message += "\(totalSteps)단계로 안내해 드릴게요. 화면을 터치하면 상세 안내를 들을 수 있어요."
         speechManager.speak(message)
     }
 }
