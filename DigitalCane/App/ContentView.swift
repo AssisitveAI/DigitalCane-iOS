@@ -72,11 +72,23 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToNavigationTab"))) { _ in
             selectedTab = 1
         }
-        .onChange(of: selectedTab) { _ in
+        .onChange(of: selectedTab) { newTab in
             // 탭 변경 시 즉시 음성 중단 및 햅틱/사운드 피드백
             speechManager.stopSpeaking()
-            // 사운드 매니저 사용 (자동 햅틱 포함)
             SoundManager.shared.play(.tabSelection)
+            
+            // 각 탭별 기능 재실행 트리거 (Notification 발송)
+            switch newTab {
+            case 0: // 디지털케인 (주변 탐색)
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
+            case 1: // 경로 안내
+                 // 경로 안내 탭 진입 시 필요한 리셋 로직이 있다면 추가
+                 break 
+            case 2: // 도움 요청 (SOS)
+                 NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
+            default:
+                break
+            }
         }
         .onAppear {
             // 위치 서비스 안전 시작 (앱 진입 후)
@@ -552,7 +564,17 @@ struct HelpView: View {
                 inputNumber = emergencyContact
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshHelpView"))) { _ in
+             // 탭 진입 시 현재 위치 안내
+             if let address = locationManager.currentAddress {
+                 speechManager.speak("현재 위치는 \(address)입니다.")
+             } else {
+                 speechManager.speak("위치 정보를 가져오는 중입니다.")
+             }
+        }
     }
+    
+
     
     // 로직 (입력된 번호 기반으로 동작)
     private func shareLocation() {
