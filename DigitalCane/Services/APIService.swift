@@ -37,8 +37,8 @@ class APIService {
             return
         }
         
-        // Gemini 1.5 Flash API 엔드포인트
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=\(geminiApiKey)")!
+        // Gemini 2.5 Flash API 엔드포인트 (2025년 12월 기준 최신 안정 버전)
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\(geminiApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

@@ -130,14 +130,24 @@ class SpeechManager: ObservableObject {
             }
         }
         
+        // 안전한 엔진 재시작: 이미 실행 중이면 중지 후 시작 (버퍼 충돌 방지)
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        
         audioEngine.prepare()
         do {
             try audioEngine.start()
             isRecording = true
-            // 초기화
             transcript = "" 
+            print("🎙️ Audio Engine Started Successfully")
+            
+            // 시작 햅틱 피드백
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
         } catch {
-            print("Audio Engine Start Error: \(error)")
+            print("❌ Audio Engine Start Error: \(error.localizedDescription)")
         }
     }
     
