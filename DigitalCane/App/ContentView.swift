@@ -82,8 +82,8 @@ struct ContentView: View {
             case 0: // 디지털케인 (주변 탐색)
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
             case 1: // 경로 안내
-                 // 탭 진입 시 이전 경로 정보 초기화 (새로운 검색 준비)
-                 navigationManager.stopNavigation()
+                 // 탭 진입 시 이전 경로 정보 유지 (삭제함: navigationManager.stopNavigation())
+                 break
             case 2: // 도움 요청 (SOS)
                  NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
             default:
@@ -339,7 +339,10 @@ struct NavigationModeView: View {
         .background(Color.black.ignoresSafeArea())
         .onAppear {
             SoundManager.shared.play(.success)
-            announceOverview()
+            // 처음 시작할 때만 전체 개요 안내 (중복 방지)
+            if navigationManager.currentStepIndex == 0 {
+                announceOverview()
+            }
         }
     }
     
