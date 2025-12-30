@@ -247,42 +247,55 @@ struct NavigationModeView: View {
             .padding(20)
             .background(Color.white.opacity(0.03))
             
-            // 안내 카드 (현재 단계)
-            ZStack {
+            // 단계별 안내 리스트 (인지지도 형성에 최적화된 리스트 방식)
+            ScrollView {
                 if navigationManager.steps.isEmpty {
-                    ProgressView().tint(.yellow)
+                    ProgressView().tint(.yellow).padding()
                 } else {
-                    let step = navigationManager.steps[navigationManager.currentStepIndex]
-                    
-                    VStack(spacing: 25) {
-                        // 현재 안내 지시어
-                        VStack(spacing: 15) {
-                            Image(systemName: step.type == .walk ? "figure.walk" : "bus.doubledecker.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.yellow)
-                            
-                            Text(step.instruction)
-                                .dynamicFont(size: 24, weight: .bold)
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(navigationManager.steps.enumerated()), id: \.offset) { index, step in
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(alignment: .top, spacing: 15) {
+                                    // 단계 번호 표시
+                                    Text("\(index + 1)")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(index == navigationManager.currentStepIndex ? .black : .yellow)
+                                        .frame(width: 24, height: 24)
+                                        .background(index == navigationManager.currentStepIndex ? Color.yellow : Color.clear)
+                                        .overlay(Circle().stroke(Color.yellow, lineWidth: 1))
+                                        .clipShape(Circle())
+                                    
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(step.instruction)
+                                            .dynamicFont(size: index == navigationManager.currentStepIndex ? 22 : 18, 
+                                                        weight: index == navigationManager.currentStepIndex ? .bold : .medium)
+                                            .foregroundColor(index == navigationManager.currentStepIndex ? .white : .gray)
+                                        
+                                        if !step.detail.isEmpty {
+                                            Text(step.detail)
+                                                .dynamicFont(size: 15)
+                                                .foregroundColor(index == navigationManager.currentStepIndex ? .yellow.opacity(0.8) : .gray.opacity(0.6))
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: step.type == .walk ? "figure.walk" : "bus.fill")
+                                        .foregroundColor(index == navigationManager.currentStepIndex ? .yellow : .gray.opacity(0.5))
+                                }
+                                .padding()
+                                .background(index == navigationManager.currentStepIndex ? Color.white.opacity(0.08) : Color.clear)
+                                .onTapGesture {
+                                    navigationManager.currentStepIndex = index
+                                    speechManager.speak(step.instruction)
+                                }
+                                
+                                Divider().background(Color.white.opacity(0.1))
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("단계 \(index + 1): \(step.instruction)")
+                            .accessibilityHint(step.detail)
                         }
-                        
-                        if !step.detail.isEmpty {
-                            Text(step.detail)
-                                .dynamicFont(size: 16)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                    }
-                    .padding(30)
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(30)
-                    .padding()
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        speechManager.speak(step.instruction)
                     }
                 }
             }
