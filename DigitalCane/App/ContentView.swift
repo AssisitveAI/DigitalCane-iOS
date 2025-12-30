@@ -79,6 +79,9 @@ struct ContentView: View {
             SoundManager.shared.play(.tabSelection)
         }
         .onAppear {
+            // 위치 서비스 안전 시작 (앱 진입 후)
+            locationManager.start()
+            
             // 탭바 스타일링 (고대비 & 큰 글씨)
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()

@@ -17,6 +17,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = 5.0 // 5m 이상 이동 시 업데이트
+    }
+    
+    // 명시적 시작 요청 (앱 진입 후 호출)
+    func start() {
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }
