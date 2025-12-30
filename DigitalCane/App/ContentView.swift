@@ -149,7 +149,7 @@ struct VoiceCommandModeView: View {
                 .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다" : "마이크 버튼")
                 
                 // 안내 텍스트
-                Text(speechManager.isRecording ? "듣고 있습니다..." : "화면을 누른 채로\n목적지를 말씀해 주세요")
+                Text(speechManager.isRecording ? "듣고 있습니다..." : "화면을 누른 채로\n출발지와 목적지를\n말씀해 주세요")
                     .dynamicFont(size: 28, weight: .bold)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
