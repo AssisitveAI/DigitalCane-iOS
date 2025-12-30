@@ -10,7 +10,7 @@
 
 ### 2.1. Hallucination-Free Intent Analysis with LLM
 가장 큰 기술적 도전 과제는 부정확한 음성 인식 결과와 LLM의 환각(Hallucination) 현상이었다. 잘못된 목적지 안내는 사용자에게 물리적 위험을 초래할 수 있다.
-- **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다.
+- **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다. 또한, 단순한 장소 인식을 넘어 **'선호 교통수단(Preference Extraction)'**까지 파악하여 개인화된 경험을 제공하도록 모델을 고도화했다.
 
 ### 2.2. Precision Heading & Haptic Feedback
 기존의 주변 장소 알림 서비스들은 '반경 내'에 있으면 무조건 알림을 주어 정보 과부하(Information Overload)를 일으킨다.
@@ -24,6 +24,7 @@
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.
 - **Adaptive Routing**: 사용자의 상황에 따라 '안전 우선(Less Walking)'과 '시간 우선(Fastest)' 모드를 동적으로 전환할 수 있는 하이브리드 라우팅 엔진을 설계하여 Google Routes API에 파라미터를 동적으로 주입한다.
+- **Smart Fail-over Mechanism**: 사용자가 특정 수단(예: "버스만 타겠다")을 고집하여 유효한 경로가 없는 경우(Dead-end), 시스템이 이를 감지하고 자동으로 '최적 경로'로 전환하여 안내하는 'Soft Fallback' 알고리즘을 적용했다. 이는 사용자에게 "안내 불가"라는 부정적 경험 대신 "대안 제시"라는 긍정적 솔루션을 제공하여 서비스 신뢰도(Reliability)를 유지하는 핵심 전략이다.
 
 ## 3. Results & Discussion
 초기 테스트 결과, 10도 내외의 좁은 탐색 범위 설정이 사용자가 원하는 특정 건물을 조준(Pin-pointing)하는 데 효과적임을 확인했다. 또한, 자연어 기반의 목적지 입력은 키보드 입력이 어려운 이동 환경에서 높은 사용성을 보여주었다. 향후 연구에서는 IMU 센서를 활용한 실내 정밀 측위(Indoor Positioning) 기능의 통합이 필요하다.
