@@ -475,24 +475,46 @@ struct HelpView: View {
     @StateObject private var locationManager = LocationManager()
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
     
-    // SMS 전송을 위한 상태 변수
+    // 유연한 연락처 처리를 위한 상태 변수
+    @State private var inputNumber: String = ""
     @State private var isShowingMessageView = false
     @State private var messageBody = ""
     
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 30) {
+            VStack(spacing: 25) {
                 Text("도움요청")
                     .font(.largeTitle)
                     .bold()
                     .foregroundColor(.red)
                     .padding(.top, 20)
                 
-                Text("길을 잃거나 도움이 필요한 경우\n아래 버튼을 사용하세요.")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                // --- 연락처 직접 수정 섹션 ---
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("연락받을 사람 번호")
+                        .font(.headline)
+                        .foregroundColor(.yellow)
+                    
+                    HStack {
+                        Image(systemName: "person.badge.plus")
+                            .foregroundColor(.gray)
+                        TextField("직접 입력 가능 (010...)", text: $inputNumber)
+                            .keyboardType(.phonePad)
+                            .padding(12)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(10)
+                            .foregroundColor(.white)
+                    }
+                    Text("기본 보호자 번호가 입력되어 있습니다.\n다른 사람에게 알려주려면 번호를 수정하세요.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("연락처 입력창. 현재 \(inputNumber) 입력됨.")
+                .accessibilityHint("방문할 곳의 사람 번호를 직접 입력할 수 있습니다.")
+
+                Divider().background(Color.gray.opacity(0.3)).padding(.horizontal)
 
                 // 1. 현재 주소 확인
                 Button(action: {
@@ -553,9 +575,15 @@ struct HelpView: View {
             .padding(.bottom, 50)
         }
         .background(Color.black.ignoresSafeArea())
+        .onAppear {
+            // 설정된 보호자 번호가 있다면 기본값으로 채워줌
+            if inputNumber.isEmpty {
+                inputNumber = emergencyContact
+            }
+        }
         .sheet(isPresented: $isShowingMessageView) {
             MessageComposeView(
-                recipients: [emergencyContact.filter { "0123456789".contains($0) }],
+                recipients: [inputNumber.filter { "0123456789".contains($0) }],
                 body: messageBody
             ) { result in
                 switch result {
@@ -570,15 +598,15 @@ struct HelpView: View {
         }
     }
     
-    // 로직 (내부 문자창 연동)
+    // 로직 (입력된 번호 기반으로 동작)
     private func shareLocation() {
-        guard let location = locationManager.currentLocation else {
-            speechManager.speak("위치 정보를 가져올 수 없습니다.")
+        if inputNumber.isEmpty {
+            speechManager.speak("연락받을 사람의 번호를 먼저 입력해 주세요.")
             return
         }
-        
-        if emergencyContact.isEmpty {
-            speechManager.speak("설정 탭에서 먼저 비상 연락처를 등록해 주세요.")
+
+        guard let location = locationManager.currentLocation else {
+            speechManager.speak("위치 정보를 가져올 수 없습니다.")
             return
         }
         
@@ -592,7 +620,6 @@ struct HelpView: View {
         if MFMessageComposeViewController.canSendText() {
             self.isShowingMessageView = true
         } else {
-            // 시뮬레이터 등이거나 SMS 불가능한 기기일 경우 기존 공유창으로 대체
             let activityVC = UIActivityViewController(activityItems: [messageBody], applicationActivities: nil)
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
                 windowScene.windows.first?.rootViewController?.present(activityVC, animated: true)
@@ -601,11 +628,11 @@ struct HelpView: View {
     }
     
     private func callGuardian() {
-        if emergencyContact.isEmpty {
-            speechManager.speak("설정에서 비상 연락처를 먼저 등록해 주세요.")
+        if inputNumber.isEmpty {
+            speechManager.speak("연락받을 사람의 번호를 먼저 입력해 주세요.")
             return
         }
-        let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
+        let phoneNumber = inputNumber.filter { "0123456789".contains($0) }
         if let url = URL(string: "tel://\(phoneNumber)") {
             UIApplication.shared.open(url)
         }
