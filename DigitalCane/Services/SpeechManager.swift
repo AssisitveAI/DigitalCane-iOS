@@ -89,8 +89,8 @@ class SpeechManager: ObservableObject {
         
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            // 녹음 및 재생 모드, 스피커 출력 강제
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker])
+            // .voiceChat 모드는 시스템 오디오 엔진과 버퍼 처리가 더 부드럽고 호환성이 높음
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             print("Audio Session Setup Error: \(error)")

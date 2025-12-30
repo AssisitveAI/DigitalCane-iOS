@@ -326,7 +326,7 @@ class APIService {
                     
                     if totalDuration == nil {
                         let durationSeconds = (Int(leg.duration?.replacingOccurrences(of: "s", with: "") ?? "0") ?? 0)
-                        totalDuration = "약 \(durationSeconds / 60)분"
+            totalDuration = "약 \(durationSeconds / 60)분"
                     }
                     
                     print("✅ Route Parsed: \(steps.count) steps, Duration: \(totalDuration ?? "")")
@@ -392,37 +392,46 @@ class APIService {
         }
     }
     
-    /// MapKit 범용 검색 폴백 함수 (가장 안정적임)
+    /// MapKit 범용 검색 폴백 함수 (카테고리 검색으로 데이터 부족 극복)
     private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
         let request = MKLocalSearch.Request()
-        // 한국 애플 지도에서 가장 풍부한 결과를 호출하는 포괄적인 키워드와 필터 설정
-        request.naturalLanguageQuery = "주변 시설" 
-        request.region = region
         
-        // POI 필터 및 결과 타입 최대로 개방 (결과 개수 증가 목적)
+        // 1. 한국 MapKit에서 가장 데이터가 많은 카테고리들 위주로 필터링
+        // 단순 텍스트 쿼리보다 카테고리 필터가 훨씬 많은 결과를 반환함 (Error 4 방지)
         if #available(iOS 13.0, *) {
-            request.pointOfInterestFilter = .includingAll
+            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
+                .restaurant, .cafe, .store, .publicTransport, .hospital, .pharmacy, .bank, .atm, .postOffice, .gasStation
+            ])
             request.resultTypes = .pointOfInterest
         }
         
+        // 2. 키워드를 하나로 고정하지 않고, 빈 쿼리 대신 범용적인 "장소" 또는 "Place" 사용
+        request.naturalLanguageQuery = "장소" 
+        request.region = region
+        
         let search = MKLocalSearch(request: request)
         search.start { response, error in
-            guard let response = response, error == nil else {
-                print("❌ MapKit Fallback failed: \(error?.localizedDescription ?? "Unknown")")
-                completion(nil, error?.localizedDescription)
+            if let error = error {
+                print("❌ Native MapKit completely failed in this region: \(error.localizedDescription)")
+                completion(nil, error.localizedDescription)
                 return
             }
             
-            // 결과가 너무 적을 경우를 대비해 MapKit이 제공하는 최대한의 정보를 수집
+            guard let response = response else {
+                completion([], nil)
+                return
+            }
+            
             let places = response.mapItems.map { item -> Place in
                 Place(
-                    name: item.name ?? "장소",
+                    name: item.name ?? "알 수 없는 장소",
                     address: item.placemark.title ?? "",
                     types: [], 
                     coordinate: item.placemark.coordinate
                 )
             }
-            print("✅ [MapKit Fallback] 범용 검색으로 \(places.count)개 검색 성공")
+            
+            print("✅ [MapKit Category Search] \(places.count)개 장소 발견")
             completion(places, nil)
         }
     }
