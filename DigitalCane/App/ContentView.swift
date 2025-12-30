@@ -241,7 +241,7 @@ struct NavigationModeView: View {
                 .cornerRadius(15)
             }
             .padding()
-            .padding(.bottom, 20) // 탭바/안전 영역 가림 방지 여백
+            .padding(.bottom, 100) // 탭바 높이(약 50~83pt)를 충분히 고려하여 버튼을 위로 올림
             .accessibilityHint("현재 안내를 종료하고, 마이크 화면으로 돌아가 새로운 목적지를 검색합니다.")
         }
         .background(Color.black.ignoresSafeArea())
