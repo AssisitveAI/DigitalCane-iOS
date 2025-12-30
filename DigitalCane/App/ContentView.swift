@@ -42,6 +42,8 @@ struct ContentView: View {
                         }
                     }
                 case 2:
+                    HelpView()
+                case 3:
                     SettingsView()
                 default:
                     EmptyView()
@@ -49,11 +51,12 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Custom Anchored Tab Bar (Optimized for iPhone SE)
+            // Custom Anchored Tab Bar (4 Tabs)
             HStack(spacing: 0) {
                 tabButton(title: "디지털케인", icon: "magnifyingglass.circle.fill", index: 0)
                 tabButton(title: "경로안내", icon: "bus.fill", index: 1)
-                tabButton(title: "설정", icon: "gearshape.fill", index: 2)
+                tabButton(title: "도움요청", icon: "exclamationmark.triangle.fill", index: 2)
+                tabButton(title: "설정", icon: "gearshape.fill", index: 3)
             }
             .padding(.top, 8)
             .padding(.bottom, 10) // SE has no home indicator, keep it slim
@@ -424,6 +427,125 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("설정")
+        }
+    }
+}
+
+// --- 새로운 도움요청 필드 ---
+struct HelpView: View {
+    @EnvironmentObject var speechManager: SpeechManager
+    @StateObject private var locationManager = LocationManager()
+    @AppStorage("emergencyContact") private var emergencyContact: String = ""
+    
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 30) {
+                Text("도움요청")
+                    .font(.largeTitle)
+                    .bold()
+                    .foregroundColor(.red)
+                    .padding(.top, 20)
+                
+                Text("길을 잃거나 도움이 필요한 경우\n아래 버튼을 사용하세요.")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                // 1. 현재 주소 확인
+                Button(action: {
+                    if let address = locationManager.currentAddress {
+                        speechManager.speak("현재 위치는 \(address)입니다.")
+                    } else {
+                        speechManager.speak("현재 위치 정보를 확인 중입니다.")
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "location.fill")
+                        Text(locationManager.currentAddress ?? "위치 확인 중...")
+                            .font(.title3)
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.white.opacity(0.1))
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal)
+
+                // 2. SMS 전송
+                Button(action: shareLocation) {
+                    HStack {
+                        Image(systemName: "message.fill")
+                        Text("보호자에게 SMS 전송")
+                            .font(.title3)
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal)
+
+                // 3. 비상 전화
+                Button(action: callGuardian) {
+                    HStack {
+                        Image(systemName: "phone.fill")
+                        Text("보호자에게 전화")
+                            .font(.title3)
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .padding(.bottom, 50)
+        }
+        .background(Color.black.ignoresSafeArea())
+    }
+    
+    // 로직 (기존 함수 재활용)
+    private func shareLocation() {
+        guard let location = locationManager.currentLocation else {
+            speechManager.speak("위치 정보를 가져올 수 없습니다.")
+            return
+        }
+        let address = locationManager.currentAddress ?? "알 수 없는 위치"
+        let mapLink = "https://www.google.com/maps/search/?api=1&query=\(location.coordinate.latitude),\(location.coordinate.longitude)"
+        let message = "[디지털케인 긴급 위치 알림]\n내 위치: \(address)\n지도 링크: \(mapLink)"
+        
+        if !emergencyContact.isEmpty {
+            let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
+            if let encodedBody = message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: "sms:\(phoneNumber)&body=\(encodedBody)") {
+                UIApplication.shared.open(url)
+                return
+            }
+        }
+        
+        let activityVC = UIActivityViewController(activityItems: [message], applicationActivities: nil)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.first?.rootViewController?.present(activityVC, animated: true)
+        }
+    }
+    
+    private func callGuardian() {
+        if emergencyContact.isEmpty {
+            speechManager.speak("설정에서 비상 연락처를 먼저 등록해 주세요.")
+            return
+        }
+        let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }
+        if let url = URL(string: "tel://\(phoneNumber)") {
+            UIApplication.shared.open(url)
         }
     }
 }
