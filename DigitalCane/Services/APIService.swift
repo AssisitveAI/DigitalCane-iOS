@@ -38,7 +38,7 @@ class APIService {
         }
         
         // Gemini 2.0 Flash API 엔드포인트
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(geminiApiKey)")!
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\(geminiApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -305,7 +305,22 @@ class APIService {
                    let leg = route.legs?.first {
                     
                     // GRouteStep -> RouteStep 변환
-                    let steps = (leg.steps ?? []).compactMap { self.convertStep($0) }
+                    let rawSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
+                    
+                    // 환승 명시화 로직: 마지막 단계가 아니면 "하차" -> "하차 및 환승"으로 변경
+                    let steps = rawSteps.enumerated().map { (index, step) -> RouteStep in
+                        if index < rawSteps.count - 1 {
+                            let newInstruction = step.instruction.replacingOccurrences(of: "하차.", with: "하차 및 환승.")
+                            return RouteStep(
+                                type: step.type,
+                                instruction: newInstruction,
+                                detail: step.detail,
+                                action: step.action,
+                                stopCount: step.stopCount
+                            )
+                        }
+                        return step
+                    }
                     
                     // 총 소요 시간: localizedValues 우선 사용 (형식: "1시간 4분") -> 없으면 초 단위 계산
                     var totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text
@@ -581,7 +596,7 @@ class APIService {
             
             action = "\(lineDisplay) 탑승"
             
-            instruction = "\(departure)에서 \(lineDisplay)을(를) 타세요.\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 내립니다."
+            instruction = "\(departure) 승차. \(lineDisplay) 탑승\(directionInfo). \(stopCount)개 정류장 이동 후 \(arrival)에서 하차."
             
             // 거리 정보 폴백 (localizedValues.distance)
             let distanceText = gStep.localizedValues?.distance?.text ?? ""
