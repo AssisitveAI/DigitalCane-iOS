@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 struct ContentView: View {
     @EnvironmentObject var speechManager: SpeechManager
@@ -67,7 +68,9 @@ struct ContentView: View {
         .accentColor(.yellow)
         .onChange(of: selectedTab) { _ in
             speechManager.stopSpeaking()
-            let generator = UIImpactFeedbackGenerator(style: .light)
+            // 탭 전환 효과음 및 진동
+            AudioServicesPlaySystemSound(1103)
+            let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
         }
     }

@@ -250,6 +250,8 @@ struct NearbyExploreView: View {
         if let (place, _) = bestMatch {
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
+                // 진동과 함께 감지 효과음 재생
+                AudioServicesPlaySystemSound(1057)
                 hapticGenerator.impactOccurred()
                 speechManager.speak(place.name)
                 
