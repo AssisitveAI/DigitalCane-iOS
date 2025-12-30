@@ -341,21 +341,13 @@ struct NavigationModeView: View {
         }
     }
     
-    // 전체 경로 개요 안내 (핵심 정보 위주로 깔끔하게)
+    // 전체 경로 개요 안내 (핵심만 짧게)
     private func announceOverview() {
         let origin = navigationManager.routeOrigin
         let dest = navigationManager.routeDestination
-        let transitSteps = navigationManager.steps.filter { $0.type == StepType.board }
+        let totalSteps = navigationManager.steps.count
         
-        var summary = ""
-        if !transitSteps.isEmpty {
-            let lines = transitSteps.map { $0.action.replacingOccurrences(of: " 탑승", with: "") }
-            summary = "\(lines.joined(separator: ", "))을 이용하는 경로입니다."
-        } else {
-            summary = "도보 중심의 경로입니다."
-        }
-        
-        let message = "\(origin)에서 \(dest)로 가는 플래닝이 준비되었습니다. \(summary) 화면을 터치하면 상세 안내를 시작합니다."
+        let message = "\(origin)에서 \(dest)로 가는 경로 안내를 시작합니다. 총 \(totalSteps)단계입니다. 화면을 눌러 상세 안내를 확인하세요."
         speechManager.speak(message)
     }
 }
