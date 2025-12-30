@@ -46,16 +46,21 @@ struct DigitalCaneApp: App {
                     SplashView()
                         .transition(AnyTransition.opacity)
                         .onAppear {
-                            // 앱 실행 음성 및 효과음 (빠른 실행을 위해 딜레이 최소화)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            // 앱 실행 음성 안내 (경고 포함)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                                 // 시스템 사운드 (오디오 로고 역할)
                                 AudioServicesPlaySystemSound(1001)
-                                // 권한 상관없이 TTS 안내 실행 (AVSpeechSynthesizer는 권한 불필요)
-                                speechManager.speak("디지털케인을 실행합니다.", interrupt: true)
+                                
+                                // 시작 안내 + 경고 메시지
+                                let welcomeMessage = """
+                                디지털케인을 실행합니다. 
+                                안내 정보는 실제와 다를 수 있으니, 주변 상황을 함께 확인해 주세요.
+                                """
+                                speechManager.speak(welcomeMessage, interrupt: true)
                             }
                             
-                            // 0.5초 후 즉시 전환 (디버깅 편의 및 프리징 방지)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            // 2초 후 메인 화면 전환 (경고 메시지 들을 시간 확보)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     isShowingSplash = false
                                 }
