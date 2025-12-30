@@ -300,29 +300,30 @@ class APIService {
                     // GRouteStep -> RouteStep 변환 (도보 포함)
                     let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
                     
-                    // 도보 통합 로직: 도보 단계를 이전 대중교통 단계에 병합
+                    // 도보 통합 로직: 도보 단계를 대중교통 단계에 병합
                     var mergedSteps: [RouteStep] = []
                     var pendingWalkInfo: String? = nil
                     
-                    for step in allSteps {
+                    for (index, step) in allSteps.enumerated() {
                         if step.type == .walk {
-                            // 도보 정보를 저장 (다음 대중교통 단계에 추가)
+                            // 도보 정보를 저장
                             let walkDistance = step.distance ?? ""
                             let walkDuration = step.duration ?? ""
                             if !walkDistance.isEmpty {
                                 if !walkDuration.isEmpty {
-                                    pendingWalkInfo = "도보 \(walkDistance) 이동 (약 \(walkDuration))"
+                                    pendingWalkInfo = "\(walkDistance), 약 \(walkDuration)"
                                 } else {
-                                    pendingWalkInfo = "도보 \(walkDistance) 이동"
+                                    pendingWalkInfo = walkDistance
                                 }
                             }
                         } else {
                             // 대중교통 단계
                             var updatedStep = step
                             
-                            // 이전에 저장된 도보 정보가 있으면 detail 앞에 추가
+                            // 이전에 저장된 도보 정보가 있으면 "탑승 전 도보" 형태로 추가
                             if let walkInfo = pendingWalkInfo {
-                                let newDetail = walkInfo + (step.detail.isEmpty ? "" : " → " + step.detail)
+                                let walkPrefix = "⚡ 탑승 전 도보 \(walkInfo)"
+                                let newDetail = walkPrefix + (step.detail.isEmpty ? "" : "\n" + step.detail)
                                 updatedStep = RouteStep(
                                     type: step.type,
                                     instruction: step.instruction,
@@ -339,11 +340,12 @@ class APIService {
                         }
                     }
                     
-                    // 마지막에 남은 도보 정보가 있으면 마지막 단계의 detail에 추가
+                    // 마지막에 남은 도보 정보가 있으면 "하차 후 도보 → 도착" 형태로 추가
                     if let walkInfo = pendingWalkInfo, !mergedSteps.isEmpty {
                         let lastIndex = mergedSteps.count - 1
                         let lastStep = mergedSteps[lastIndex]
-                        let newDetail = lastStep.detail.isEmpty ? "하차 후 " + walkInfo : lastStep.detail + " → 하차 후 " + walkInfo
+                        let walkSuffix = "🚶 하차 후 도보 \(walkInfo) → 도착"
+                        let newDetail = lastStep.detail.isEmpty ? walkSuffix : lastStep.detail + "\n" + walkSuffix
                         mergedSteps[lastIndex] = RouteStep(
                             type: lastStep.type,
                             instruction: lastStep.instruction,
