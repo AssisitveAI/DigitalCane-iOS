@@ -30,6 +30,36 @@ struct NearbyExploreView: View {
                     .padding(.top, 20)
                     .accessibilityAddTraits(.isHeader)
                 
+                // 현재 주소 정보 (터치 시 안내)
+                Button(action: {
+                    if let address = locationManager.currentAddress {
+                        speechManager.speak("현재 위치는 \(address)입니다.")
+                    } else {
+                        speechManager.speak("현재 위치 정보를 확인 중입니다.")
+                    }
+                }) {
+                    VStack(spacing: 4) {
+                        HStack {
+                            Image(systemName: "location.fill")
+                            Text(locationManager.currentAddress ?? "위치 확인 중...")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        
+                        Text("터치하면 주소를 안내합니다")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+                }
+                .accessibilityLabel("현재 주소 확인: \(locationManager.currentAddress ?? "확인 중")")
+                .accessibilityHint("탭하면 현재 위치의 주소를 음성으로 안내합니다.")
+                
                 // 반경 설정
                 radiusControlView
                     .padding(.horizontal)
