@@ -14,6 +14,7 @@ struct ContentView: View {
                 Color.black.ignoresSafeArea()
                 NearbyExploreView()
             }
+            .ignoresSafeArea() // 콘텐츠영역도 전체 화면으로 확장
             .tabItem {
                 Label("디지털 지팡이", systemImage: "magnifyingglass.circle.fill")
             }
