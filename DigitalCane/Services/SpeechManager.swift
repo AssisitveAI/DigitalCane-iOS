@@ -68,7 +68,10 @@ class SpeechManager: ObservableObject {
     
     // 녹음 시작
     func startRecording() {
-        guard permissionGranted else { return }
+        guard permissionGranted else {
+            speak("마이크 권한이 필요합니다. 설정에서 허용해 주세요.")
+            return
+        }
         
         // 듣기 시작 효과음 (Begin Record)
         playSound(1113)

@@ -120,9 +120,6 @@ class APIService {
                 }
             } catch {
                 print("Gemini Decoding Error: \(error)")
-                if let str = String(data: data, encoding: .utf8) {
-                    print("Raw Res: \(str)")
-                }
                 completion(nil)
             }
         }.resume()
@@ -258,8 +255,10 @@ class APIService {
                 ]
             ]
         } else if origin == "Current Location" {
-             // 좌표가 없으면 Fallback
-             originBody = ["address": "서울역"]
+             // 좌표가 없으면 실패 처리 (임의 위치인 서울역으로 안내하면 위험함)
+             print("Current Location is required but nil")
+             completion(nil)
+             return
         }
         
         // Google Routes API v2 (Latest Standard 2025)
@@ -383,7 +382,7 @@ class APIService {
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Places Network Error: \(error.localizedDescription)")
-                completion(nil, "네트워크 오류가 발생했습니다.")
+                completion(nil, "서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.")
                 return
             }
             
@@ -463,11 +462,18 @@ class APIService {
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             guard let data = data, error == nil else {
+                print("Places Search Network Error: \(error?.localizedDescription ?? "Unknown error")")
                 completion(nil)
                 return
             }
             
             do {
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                     print("Places Search API Error: \(httpResponse.statusCode)")
+                     completion(nil)
+                     return
+                }
+                
                 let decodedResponse = try JSONDecoder().decode(PlacesResponse.self, from: data)
                 let places = decodedResponse.places?.compactMap { place -> Place? in
                     guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
@@ -478,9 +484,10 @@ class APIService {
                         coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
                     )
                 }
+                
                 completion(places)
             } catch {
-                print("Search Places Decoding Error: \(error)")
+                print("Places Search Decoding Error: \(error)")
                 completion(nil)
             }
         }.resume()

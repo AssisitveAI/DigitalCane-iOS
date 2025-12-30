@@ -41,6 +41,21 @@ class NavigationManager: ObservableObject {
     func findRoute(to userVoiceInput: String, locationManager: LocationManager, onFailure: @escaping (String) -> Void) {
         print("User Voice Input: \(userVoiceInput)")
         
+        // 위치 서비스 상태 확인
+        if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+            DispatchQueue.main.async {
+                onFailure("현재 위치를 확인할 수 없습니다. 설정에서 위치 권한을 확인해 주세요.")
+            }
+            return
+        }
+        
+        if locationManager.currentLocation == nil {
+             DispatchQueue.main.async {
+                onFailure("위치 정보를 수신 중입니다. 잠시 후 다시 시도해 주세요.")
+            }
+            return
+        }
+        
         // 1. LLM을 통한 의도 파악
         APIService.shared.analyzeIntent(from: userVoiceInput) { [weak self] intent in
             guard let self = self else { return }
@@ -58,7 +73,7 @@ class NavigationManager: ObservableObject {
             guard let intent = intent, !intent.destinationName.isEmpty else {
                 print("Intent analysis failed or empty destination")
                 DispatchQueue.main.async {
-                    onFailure("죄송해요, 목적지를 잘 이해하지 못했습니다. 다시 한 번 말씀해 주시겠어요?")
+                    onFailure("목적지를 명확히 인식하지 못했습니다. 정확한 장소명을 다시 말씀해 주세요.")
                 }
                 return
             }
@@ -70,7 +85,7 @@ class NavigationManager: ObservableObject {
                 guard let self = self else { return }
                 guard let places = foundPlaces, !places.isEmpty else {
                     DispatchQueue.main.async {
-                        onFailure("말씀하신 장소를 찾을 수 없어요. 이름을 다시 확인해 주시겠어요?")
+                        onFailure("해당 장소를 찾을 수 없습니다. 정확한 이름을 다시 말씀해 주세요.")
                     }
                     return
                 }
@@ -103,7 +118,7 @@ class NavigationManager: ObservableObject {
                 guard let routeData = routeData else {
                     print("Route fetch failed")
                     DispatchQueue.main.async {
-                        onFailure("그곳으로 가는 길을 찾을 수가 없네요. 잠시 후 다시 시도해 주세요.")
+                        onFailure("해당 목적지로 가는 대중교통 경로를 찾을 수 없습니다.")
                     }
                     return
                 }
