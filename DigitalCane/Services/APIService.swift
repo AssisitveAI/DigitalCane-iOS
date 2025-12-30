@@ -430,7 +430,7 @@ class APIService {
             [.restaurant, .cafe, .bakery, .brewery], // Food & Drink
             [.store, .pharmacy, .bank, .atm, .postOffice], // Shopping & Services
             [.publicTransport, .gasStation, .parking, .evCharger], // Transportation
-            [.hospital, .park, .museum, .landmark, .library, .school] // Social & Attractions
+            [.hospital, .park, .museum, .library, .school] // Social & Attractions
         ]
         
         var allFoundPlaces: [Place] = []
