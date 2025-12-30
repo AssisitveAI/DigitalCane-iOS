@@ -107,11 +107,7 @@ struct NearbyExploreView: View {
                     }
                     .padding()
                 }
-                    .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(15)
-                    .padding(.horizontal)
-                }
+
                 
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
