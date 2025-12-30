@@ -797,26 +797,67 @@ class APIService {
             let lineWithJosa = appendJosa(lineDisplay)
             
             // 자연스러운 문장형 복구 (조사 완벽 처리)
-            // 예: "서울역에서 143번 버스를 타고 고속터미널 방면으로 5개 정류장 이동 후 신사역에서 내립니다."
-            instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 내립니다."
+            // 예: "서울역에서 143번 버스를 타고 고속터미널 방면으로 5개 정류장 이동 후 신사역에서 하차."
+            if stopCount > 0 {
+                instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(stopCount)개 정류장 이동 후 \(arrival)에서 하차."
+            } else {
+                instruction = "\(departure)에서 \(lineWithJosa) 타고\(directionInfo) \(arrival)까지 이동 후 하차."
+            }
             
             // 거리 정보 폴백
             let distanceText = gStep.localizedValues?.distance?.text ?? ""
-            let detailInfo = !distanceText.isEmpty ? "\(distanceText) 이동" : ""
+            var detailInfo = ""
+            if !duration.isEmpty {
+                detailInfo = "약 \(duration) 소요"
+                if !distanceText.isEmpty {
+                    detailInfo += ", \(distanceText)"
+                }
+            } else if !distanceText.isEmpty {
+                detailInfo = "\(distanceText) 이동"
+            }
             
             return RouteStep(type: .board,
                              instruction: instruction,
-                             detail: detailInfo, // 거리 정보 상세 표시
+                             detail: detailInfo,
                              action: action,
                              stopCount: stopCount,
                              duration: duration,
                              distance: distance)
         }
         
-
+        // 도보 단계: 환승 연결 정보로 포함 (끊김 방지)
+        // 짧은 도보(100m 미만)는 간략히, 긴 도보는 상세하게
+        let distanceNum = Int(distance.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)) ?? 0
         
-        // 도보/기타 단계는 제외 (사용자 요청: 번거로운 도보 안내 생략)
-        // 예전 방식처럼 대중교통 탑승 정보만 간결하게 제공
+        if distanceNum > 0 {
+            var walkInstruction = ""
+            var walkDetail = ""
+            
+            if distanceNum < 100 {
+                // 짧은 도보: 환승 안내
+                walkInstruction = "환승을 위해 약 \(distanceNum)m 도보 이동."
+                walkDetail = duration.isEmpty ? "" : "약 \(duration) 소요"
+            } else {
+                // 긴 도보: 상세 안내
+                let directionHint = gStep.navigationInstruction?.instructions ?? ""
+                if !directionHint.isEmpty && !directionHint.contains("Walk") {
+                    walkInstruction = "\(directionHint) 방향으로 \(distanceNum)m 도보 이동."
+                } else {
+                    walkInstruction = "도보로 \(distanceNum)m 이동."
+                }
+                walkDetail = duration.isEmpty ? "" : "약 \(duration) 소요"
+            }
+            
+            return RouteStep(type: .walk,
+                             instruction: walkInstruction,
+                             detail: walkDetail,
+                             action: "도보 \(distanceNum)m",
+                             stopCount: 0,
+                             duration: duration,
+                             distance: distance)
+        }
+        
+        // 거리 정보도 없는 도보 단계는 제외
         return nil
     }
 }
