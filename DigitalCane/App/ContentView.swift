@@ -251,6 +251,7 @@ struct VoiceCommandModeView: View {
 struct NavigationModeView: View {
     @EnvironmentObject var navigationManager: NavigationManager
     @EnvironmentObject var speechManager: SpeechManager
+    @EnvironmentObject var locationManager: LocationManager // 날씨 API 호출을 위한 위치 정보 필요
     
     var body: some View {
         VStack(spacing: 0) {
@@ -416,7 +417,19 @@ struct NavigationModeView: View {
             }
         }
         
-        speechManager.speak(message)
+        // 날씨 정보 가져오기 및 안내
+        if let location = locationManager.currentLocation {
+            WeatherService.shared.fetchCurrentWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude) { weatherInfo, _ in
+                DispatchQueue.main.async {
+                    if let weatherInfo = weatherInfo {
+                        message += " 참고로, \(weatherInfo)"
+                    }
+                    speechManager.speak(message)
+                }
+            }
+        } else {
+            speechManager.speak(message)
+        }
     }
 }
 
@@ -697,7 +710,7 @@ struct HelpGuideView: View {
     @EnvironmentObject var speechManager: SpeechManager
     
     // 가이드 데이터 모델
-    struct GuideSection: Identifiable {
+    struct HelpItem: Identifiable {
         let id = UUID()
         let title: String
         let content: String
@@ -705,18 +718,21 @@ struct HelpGuideView: View {
     }
     
     let guides = [
-        GuideSection(title: "1. 디지털케인 (주변 탐색)", 
-                     content: "스마트폰을 지팡이처럼 들어 전방을 스캔하세요. 편의점, 약국 등 주변 시설이 있으면 진동과 음성으로 알려줍니다. 안전을 위해 멈춰서서 사용해 주세요.", 
-                     iconName: "magnifyingglass.circle.fill"),
-        GuideSection(title: "2. 대중교통경로안내", 
-                     content: "화면을 길게 누르고 목적지를 말해보세요. '강남역으로 가줘' 또는 '버스로 갈래'라고 말하면 가장 좋은 경로를 찾아줍니다. 출발지를 말하지 않으면 현재 위치에서 출발합니다.", 
-                     iconName: "bus.fill"),
-        GuideSection(title: "3. 도움요청 (SOS)", 
-                     content: "길을 잃었을 때 사용하세요. 현재 위치 주소를 알려주고, 보호자에게 내 위치가 담긴 문자를 즉시 보낼 수 있습니다.", 
-                     iconName: "exclamationmark.shield.fill"),
-        GuideSection(title: "4. 설정", 
-                     content: "글자 크기를 조절하거나, 탐색 반경을 변경할 수 있습니다. 걷는 것이 힘들다면 '보행 최소화' 옵션을 켜보세요.", 
-                     iconName: "gearshape.fill")
+        HelpItem(title: "디지털케인 (주변 탐색)", 
+                 content: "휴대폰을 지팡이처럼 들어 주변을 둘러보세요. '촉각 나침반'이 30미터 이내의 장소를 진동의 세기로 알려줍니다. 입구가 편리한 가게는 '입구가 편리합니다'라고 안내해 드려요. 같은 곳을 계속 가리키면 조용히 유지하다가, 다시 듣고 싶을 때 다시 가리키면 즉시 알려줍니다.", 
+                 iconName: "sensor.tag.radiowaves.forward.fill"),
+        
+        HelpItem(title: "대중교통 경로 안내 (내비게이션)", 
+                 content: "원하는 목적지를 말씀해 주세요. '버스로 가고 싶어'나 '지하철로 갈래'처럼 말하면 맞춤 경로를 찾아드립니다. 출발하기 전 오늘 날씨와 우산 필요 여부도 함께 알려드려요.", 
+                 iconName: "bus.fill"),
+        
+        HelpItem(title: "도움 요청 (SOS)", 
+                 content: "위급한 상황이 생기면 이 탭을 누르세요. 미리 등록해둔 보호자에게 현재 내 위치와 지도 링크를 문자로 즉시 전송하거나, 전화를 걸 수 있습니다.", 
+                 iconName: "exclamationmark.triangle.fill"), // 오타 수정: triangle.fill
+                 
+        HelpItem(title: "설정 및 개인화", 
+                 content: "글자 크기를 조절하거나, 탐색 반경을 변경할 수 있습니다.", 
+                 iconName: "gearshape.fill")
     ]
     
     var body: some View {
@@ -780,5 +796,74 @@ struct HelpGuideView: View {
 extension View {
     func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+// MARK: - Weather Service (Open-Meteo)
+// Note: 별도 파일로 분리 시 Xcode 프로젝트 참조 문제 발생 가능성으로 인해 우선 View 파일 내에 포함
+struct WeatherResponse: Decodable {
+    let current_weather: CurrentWeather
+}
+
+struct CurrentWeather: Decodable {
+    let temperature: Double
+    let weathercode: Int
+    let windspeed: Double
+}
+
+class WeatherService {
+    static let shared = WeatherService()
+    
+    private init() {}
+    
+    /// Open-Meteo API를 사용하여 현재 날씨 정보를 가져옵니다. (No API Key Required)
+    func fetchCurrentWeather(latitude: Double, longitude: Double, completion: @escaping (String?, Error?) -> Void) {
+        let urlString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current_weather=true"
+        
+        guard let url = URL(string: urlString) else {
+            completion(nil, NSError(domain: "WeatherService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                completion(nil, error)
+                return
+            }
+            
+            guard let data = data else {
+                completion(nil, NSError(domain: "WeatherService", code: -2, userInfo: [NSLocalizedDescriptionKey: "No Data"]))
+                return
+            }
+            
+            do {
+                let weatherResponse = try JSONDecoder().decode(WeatherResponse.self, from: data)
+                let weather = weatherResponse.current_weather
+                let description = self.interpretWeatherCode(weather.weathercode, temperature: weather.temperature)
+                completion(description, nil)
+            } catch {
+                completion(nil, error)
+            }
+        }.resume()
+    }
+    
+    /// WMO Weather Code를 한국어 문장으로 변환하고 온도를 포함합니다.
+    private func interpretWeatherCode(_ code: Int, temperature: Double) -> String {
+        let tempStr = String(format: "%.1f", temperature)
+        var condition = ""
+        
+        switch code {
+        case 0: condition = "쾌적하고 맑은 날씨입니다"
+        case 1, 2, 3: condition = "구름이 조금 있거나 흐린 날씨입니다"
+        case 45, 48: condition = "안개가 끼어 있어 시야가 흐릴 수 있습니다"
+        case 51, 53, 55: condition = "가벼운 이슬비가 내리고 있습니다"
+        case 61, 63, 65: condition = "비가 오고 있습니다. 우산을 챙기세요"
+        case 71, 73, 75: condition = "눈이 내리고 있습니다. 미끄러움에 주의하세요"
+        case 80, 81, 82: condition = "소나기가 내리고 있습니다"
+        case 95, 96, 99: condition = "뇌우가 예상됩니다. 외출 시 주의하세요"
+        default: condition = "날씨 정보를 확인하고 있습니다"
+        }
+        
+        return "현재 기온은 \(tempStr)도이며, \(condition)."
     }
 }
