@@ -14,6 +14,7 @@
 		57C8F05DD1E243FDE8D201C6 /* CompassManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C99A49F4AADC37E4CEFB5BC /* CompassManager.swift */; };
 		5C55FE9625317AA041AC1596 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B7F89815A28F304353E1FF6 /* ContentView.swift */; };
 		605F73B15E1CCEB6C6F5ABD2 /* DigitalCaneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */; };
+		635801DF1BB11E67951A81BC /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF873C1938A7D1354C3DC3E /* WeatherService.swift */; };
 		64CF903F7CFE7AE9BA1D19E5 /* NavigationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */; };
 		666D59C4CA1D2A907FD9FAA8 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403D6DEF2EECF0145E636432 /* HelpView.swift */; };
 		68CCCD23EC7E231EA1D039C0 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = 99BB56EF7641EE3020560C51 /* Secrets.plist */; };
@@ -41,6 +42,7 @@
 		91C28AD887BE16B2A954A498 /* HelpGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpGuideView.swift; sourceTree = "<group>"; };
 		99BB56EF7641EE3020560C51 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
 		9E20106E32C0053AE6FEFA52 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		ABF873C1938A7D1354C3DC3E /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		C7A1AF6F75E91B4C2936F932 /* NavigationModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationModeView.swift; sourceTree = "<group>"; };
 		DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneApp.swift; sourceTree = "<group>"; };
 		DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DigitalCane.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -56,6 +58,7 @@
 				0A8D0BB39DAD7385B25FC622 /* LocationManager.swift */,
 				FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */,
 				828D515E329544C82D136D09 /* SpeechManager.swift */,
+				ABF873C1938A7D1354C3DC3E /* WeatherService.swift */,
 			);
 			name = Services;
 			path = DigitalCane/Services;
@@ -188,6 +191,7 @@
 				D7DEEB02A208B399B62F5227 /* SplashView.swift in Sources */,
 				EA3C807B6F105674ACD8949F /* ViewExtensions.swift in Sources */,
 				AC5FB011CB3978D42D50793D /* VoiceCommandModeView.swift in Sources */,
+				635801DF1BB11E67951A81BC /* WeatherService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
