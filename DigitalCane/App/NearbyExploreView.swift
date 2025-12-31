@@ -307,7 +307,14 @@ struct NearbyExploreView: View {
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
                 SoundManager.shared.play(.finding) // 띠링 효과음 + 햅틱
-                speechManager.speak(place.name)
+                
+                // 접근성 정보가 있으면 함께 안내
+                var announcement = place.name
+                if place.isWheelchairAccessible {
+                    announcement += ". 입구가 편리합니다."
+                }
+                
+                speechManager.speak(announcement)
                 
                 lastAnnouncedPlaceId = place.id
                 lastAnnouncementTime = now

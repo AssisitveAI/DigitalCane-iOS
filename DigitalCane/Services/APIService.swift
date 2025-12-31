@@ -648,7 +648,8 @@ class APIService {
                 name: item.name ?? "알 수 없는 장소",
                 address: item.placemark.title ?? "",
                 types: [], 
-                coordinate: item.placemark.coordinate
+                coordinate: item.placemark.coordinate,
+                isWheelchairAccessible: false // MapKit은 제공 안함
             )
         }
     }
@@ -662,8 +663,8 @@ class APIService {
         request.httpMethod = "POST"
         request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.addValue(Bundle.main.bundleIdentifier ?? "kr.ac.kaist.assistiveailab.DigitalCane", forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        // 필요한 필드만 요청 (위치 정보 location 추가)
-        request.addValue("places.displayName,places.primaryType,places.formattedAddress,places.location", forHTTPHeaderField: "X-Goog-FieldMask")
+        // 필요한 필드만 요청 (위치 정보 location 및 접근성 정보 추가)
+        request.addValue("places.displayName,places.primaryType,places.formattedAddress,places.location,places.accessibilityOptions", forHTTPHeaderField: "X-Goog-FieldMask")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Google Places API 문서에 따르면, includedTypes를 생략하면 모든 장소 유형이 반환됩니다. (Table A 등 필터 제한 없음)
@@ -721,7 +722,8 @@ class APIService {
                         name: place.displayName?.text ?? "장소",
                         address: place.formattedAddress ?? "",
                         types: place.types ?? [],
-                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                        isWheelchairAccessible: place.accessibilityOptions?.wheelchairAccessibleEntrance ?? false
                     )
                 }
                 
@@ -790,7 +792,8 @@ class APIService {
                         name: place.displayName?.text ?? query,
                         address: place.formattedAddress ?? "",
                         types: place.types ?? [],
-                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                        isWheelchairAccessible: place.accessibilityOptions?.wheelchairAccessibleEntrance ?? false
                     )
                 }
                 
@@ -1167,7 +1170,11 @@ struct GPlace: Decodable {
     let formattedAddress: String?
     let types: [String]?
     let location: GLocation?
+    let accessibilityOptions: GAccessibilityOptions? // 접근성 옵션 추가
 }
+
+struct GAccessibilityOptions: Decodable {
+    let wheelchairAccessibleEntrance: Bool?
 
 struct GLocation: Decodable {
     let latitude: Double
@@ -1185,8 +1192,22 @@ struct Place: Identifiable {
     let address: String
     let types: [String]
     let coordinate: CLLocationCoordinate2D
+    let isWheelchairAccessible: Bool // 휠체어 접근(턱 없음) 가능 여부
+    
+    // 기본 생성자 (기존 코드 호환성을 위해 isWheelchairAccessible 기본값 제공)
+    init(name: String, address: String, types: [String], coordinate: CLLocationCoordinate2D, isWheelchairAccessible: Bool = false) {
+        self.name = name
+        self.address = address
+        self.types = types
+        self.coordinate = coordinate
+        self.isWheelchairAccessible = isWheelchairAccessible
+    }
     
     var accessibleDescription: String {
-        return "\(name). \(address)."
+        var base = "\(name). \(address)."
+        if isWheelchairAccessible {
+            base += " 입구에 턱이 없습니다."
+        }
+        return base
     }
 }
