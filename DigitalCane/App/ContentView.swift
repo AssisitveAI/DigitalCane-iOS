@@ -25,7 +25,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Tab 1: 디지털 지팡이 (메인)
+            // Tab 1: 디지털케인 (메인)
             NearbyExploreView()
                 .tabItem {
                     Label("디지털케인", systemImage: "magnifyingglass.circle.fill")
@@ -66,6 +66,13 @@ struct ContentView: View {
                     Label("설정", systemImage: "gearshape.fill")
                 }
                 .tag(3)
+            
+            // Tab 5: 도움말 (사용 가이드)
+            HelpGuideView()
+                .tabItem {
+                    Label("도움말", systemImage: "questionmark.circle.fill")
+                }
+                .tag(4)
         }
         .background(Color.black.ignoresSafeArea())
         .accentColor(.yellow)
@@ -91,7 +98,11 @@ struct ContentView: View {
                 navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
             case 3: // 설정
-                navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
+                navigationManager.stopNavigation()
+            case 4: // 도움말
+                navigationManager.stopNavigation()
+                // 도움말 탭 진입 시 자동 요약 안내
+                speechManager.speak("사용 설명서입니다. 화면을 터치하여 각 기능의 설명을 들어보세요.")
             default:
                 break
             }
@@ -678,6 +689,90 @@ struct HelpView: View {
         if let url = URL(string: "tel://\(phoneNumber)") {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+// MARK: - 도움말 (사용 가이드) 뷰
+struct HelpGuideView: View {
+    @EnvironmentObject var speechManager: SpeechManager
+    
+    // 가이드 데이터 모델
+    struct GuideSection: Identifiable {
+        let id = UUID()
+        let title: String
+        let content: String
+        let iconName: String
+    }
+    
+    let guides = [
+        GuideSection(title: "1. 디지털케인 (주변 탐색)", 
+                     content: "스마트폰을 지팡이처럼 들어 전방을 스캔하세요. 편의점, 약국 등 주변 시설이 있으면 진동과 음성으로 알려줍니다. 안전을 위해 멈춰서서 사용해 주세요.", 
+                     iconName: "magnifyingglass.circle.fill"),
+        GuideSection(title: "2. 대중교통경로안내", 
+                     content: "화면을 길게 누르고 목적지를 말해보세요. '강남역으로 가줘' 또는 '버스로 갈래'라고 말하면 가장 좋은 경로를 찾아줍니다. 출발지를 말하지 않으면 현재 위치에서 출발합니다.", 
+                     iconName: "bus.fill"),
+        GuideSection(title: "3. 도움요청 (SOS)", 
+                     content: "길을 잃었을 때 사용하세요. 현재 위치 주소를 알려주고, 보호자에게 내 위치가 담긴 문자를 즉시 보낼 수 있습니다.", 
+                     iconName: "exclamationmark.shield.fill"),
+        GuideSection(title: "4. 설정", 
+                     content: "글자 크기를 조절하거나, 탐색 반경을 변경할 수 있습니다. 걷는 것이 힘들다면 '보행 최소화' 옵션을 켜보세요.", 
+                     iconName: "gearshape.fill")
+    ]
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 30) {
+                // 헤더
+                Text("사용 설명서")
+                    .dynamicFont(size: 34, weight: .bold)
+                    .foregroundColor(.yellow)
+                    .padding(.top, 20)
+                    .accessibilityAddTraits(.isHeader)
+                
+                Text("각 항목을 터치하면 상세 설명을 음성으로 들을 수 있습니다.")
+                    .dynamicFont(size: 18)
+                    .foregroundColor(.white)
+                    .padding(.bottom, 10)
+                
+                // 가이드 목록
+                ForEach(guides) { guide in
+                    Button(action: {
+                        SoundManager.shared.play(.click)
+                        speechManager.speak("\(guide.title). \(guide.content)")
+                    }) {
+                        HStack(alignment: .top, spacing: 15) {
+                            Image(systemName: guide.iconName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 40, height: 40)
+                                .foregroundColor(.yellow)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(guide.title)
+                                    .dynamicFont(size: 22, weight: .bold)
+                                    .foregroundColor(.white)
+                                
+                                Text(guide.content)
+                                    .dynamicFont(size: 17)
+                                    .foregroundColor(.gray)
+                                    .lineSpacing(4)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        .padding()
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(15)
+                    }
+                    .accessibilityLabel(guide.title)
+                    .accessibilityHint(guide.content)
+                }
+                
+                // 하단 여백
+                Spacer().frame(height: 50)
+            }
+            .padding(.horizontal)
+        }
+        .background(Color.black.ignoresSafeArea())
     }
 }
 
