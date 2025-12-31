@@ -1,6 +1,7 @@
 import Foundation
 
-class WeatherService {
+/// 날씨 정보를 제공하는 서비스 클래스
+internal class WeatherService {
     static let shared = WeatherService()
     
     private init() {}
