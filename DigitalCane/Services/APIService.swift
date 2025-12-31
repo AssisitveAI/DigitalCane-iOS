@@ -567,20 +567,25 @@ class APIService {
                     )
                 }
                 
-                // 중복 제거 (이름과 좌표 기준)
+                
+                // 고도화된 중복 제거 로직
+                // 1. 이름이 같고
+                // 2. 서로 거리가 30m 이내이면 같은 장소로 간주 (Google Maps 데이터 노이즈 제거)
                 var uniquePlaces: [Place] = []
-                var seenKeys = Set<String>()
                 
                 if let places = places {
                     for place in places {
-                        // 소수점 4자리까지만 키로 사용하여 미세한 좌표 차이 무시
-                        let latKey = String(format: "%.4f", place.coordinate.latitude)
-                        let lngKey = String(format: "%.4f", place.coordinate.longitude)
-                        let key = "\(place.name)-\(latKey)-\(lngKey)"
+                        let isDuplicate = uniquePlaces.contains { existingPlace in
+                            if existingPlace.name == place.name {
+                                let loc1 = CLLocation(latitude: existingPlace.coordinate.latitude, longitude: existingPlace.coordinate.longitude)
+                                let loc2 = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
+                                return loc1.distance(from: loc2) < 30.0 // 30m 이내 중복 제거
+                            }
+                            return false
+                        }
                         
-                        if !seenKeys.contains(key) {
+                        if !isDuplicate {
                             uniquePlaces.append(place)
-                            seenKeys.insert(key)
                         }
                     }
                 }
