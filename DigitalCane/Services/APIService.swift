@@ -483,176 +483,11 @@ class APIService {
         }.resume()
     }
     
-    /// 애플 지도(MapKit)와 구글 지도(Google Places)를 결합한 하이브리드 주변 검색
-    func fetchNearbyPlacesHybrid(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
-        // 1. 먼저 애플 네이티브로 검색 시도 (무료/빠름)
-        self.fetchNearbyPlacesMapKit(latitude: latitude, longitude: longitude, radius: radius) { nativePlaces, error in
-            let foundCount = nativePlaces?.count ?? 0
-            
-            // 2. 결과가 충분하면(5개 이상) 즉시 반환
-            if foundCount >= 5 {
-                print("✅ [Hybrid] Apple Native로 충분한 정보(\(foundCount)개) 확보")
-                completion(nativePlaces, nil)
-                return
-            }
-            
-            // 3. 결과가 부족하면 구글 플레이스 API로 보강 (정밀 정보)
-            print("⚠️ [Hybrid] Apple 정보 부족(\(foundCount)개), 구글 API로 보강합니다...")
-            self.fetchNearbyPlaces(latitude: latitude, longitude: longitude, radius: radius) { googlePlaces, googleError in
-                guard let googlePlaces = googlePlaces else {
-                    // 구글도 실패하면 애플 결과라도 반환
-                    completion(nativePlaces, error)
-                    return
-                }
-                
-                // 두 결과 합치고 중복 제거
-                var combined = nativePlaces ?? []
-                let nativeNames = Set(combined.map { $0.name })
-                
-                for gp in googlePlaces {
-                    if !nativeNames.contains(gp.name) {
-                        combined.append(gp)
-                    }
-                }
-                
-                print("✅ [Hybrid] 통합 결과 \(combined.count)개 반환 (Apple + Google 보강)")
-                completion(combined, nil)
-            }
-        }
-    }
+
     
     // MARK: - 3. Nearby Places Search (Native MapKit Version)
     /// 애플 기본 프레임워크(MapKit)를 사용한 주변 장소 검색
-    func fetchNearbyPlacesMapKit(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
-        // ... (기존 구현 유지)
-        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-        
-        // 검색 범위 설정
-        let region = MKCoordinateRegion(
-            center: coordinate,
-            latitudinalMeters: radius * 2,
-            longitudinalMeters: radius * 2
-        )
-        
-        // iOS 14+ 에서 지원하는 POI 전용 검색 요청
-        if #available(iOS 14.0, *) {
-            let request = MKLocalPointsOfInterestRequest(coordinateRegion: region)
-            // 모든 카테고리 포함
-            request.pointOfInterestFilter = .includingAll
-            
-            let search = MKLocalSearch(request: request)
-            search.start { response, error in
-                if let error = error {
-                    print("ℹ️ Native POI service unavailable, switching to generic search: \(error.localizedDescription)")
-                    // 실패 시 범용 검색으로 폴백 시도
-                    self.performGenericMapKitSearch(region: region, completion: completion)
-                    return
-                }
-                
-                guard let response = response else {
-                    self.performGenericMapKitSearch(region: region, completion: completion)
-                    return
-                }
-                
-                let places = response.mapItems.map { item -> Place in
-                    Place(
-                        name: item.name ?? "장소",
-                        address: item.placemark.title ?? "",
-                        types: [], 
-                        coordinate: item.placemark.coordinate
-                    )
-                }
-                
-                print("✅ [Native MapKit] POI API로 \(places.count)개 검색됨")
-                completion(places, nil)
-            }
-        } else {
-            self.performGenericMapKitSearch(region: region, completion: completion)
-        }
-    }
-    
-    /// MapKit 범용 검색 폴백 (병렬 카테고리 검색으로 검색량 극대화)
-    private func performGenericMapKitSearch(region: MKCoordinateRegion, completion: @escaping ([Place]?, String?) -> Void) {
-        // 그룹별 카테고리 정의 (한국 내 POI 밀도를 높이기 위해 분산 검색)
-        let categoryGroups: [[MKPointOfInterestCategory]] = [
-            [.restaurant, .cafe, .bakery, .brewery], // Food & Drink
-            [.store, .pharmacy, .bank, .atm, .postOffice], // Shopping & Services
-            [.publicTransport, .gasStation, .parking, .evCharger], // Transportation
-            [.hospital, .park, .museum, .library, .school] // Social & Attractions
-        ]
-        
-        var allFoundPlaces: [Place] = []
-        let dispatchGroup = DispatchGroup()
-        let lock = NSLock()
-        
-        print("🚀 [Multi-Category Search] 고밀도 주변 탐색 시작...")
-        
-        for group in categoryGroups {
-            dispatchGroup.enter()
-            let request = MKLocalSearch.Request()
-            request.region = region
-            request.naturalLanguageQuery = " " // 전범위 검색 유도
-            if #available(iOS 13.0, *) {
-                request.pointOfInterestFilter = MKPointOfInterestFilter(including: group)
-                request.resultTypes = .pointOfInterest
-            }
-            
-            let search = MKLocalSearch(request: request)
-            search.start { response, error in
-                if let response = response {
-                    let places = self.mapItemsToPlaces(response.mapItems)
-                    lock.lock()
-                    allFoundPlaces.append(contentsOf: places)
-                    lock.unlock()
-                }
-                dispatchGroup.leave()
-            }
-        }
-        
-        // 추가로 '와일드카드' 검색 하나 더 병행
-        dispatchGroup.enter()
-        let wildcardRequest = MKLocalSearch.Request()
-        wildcardRequest.region = region
-        wildcardRequest.naturalLanguageQuery = "주변"
-        MKLocalSearch(request: wildcardRequest).start { response, error in
-            if let response = response {
-                let places = self.mapItemsToPlaces(response.mapItems)
-                lock.lock()
-                allFoundPlaces.append(contentsOf: places)
-                lock.unlock()
-            }
-            dispatchGroup.leave()
-        }
-        
-        dispatchGroup.notify(queue: .main) {
-            // 중복 제거 (이름과 좌표 기준)
-            var uniquePlaces: [Place] = []
-            var seenNames = Set<String>()
-            
-            for place in allFoundPlaces {
-                let key = "\(place.name)-\(place.coordinate.latitude)-\(place.coordinate.longitude)"
-                if !seenNames.contains(key) {
-                    uniquePlaces.append(place)
-                    seenNames.insert(key)
-                }
-            }
-            
-            print("✅ [Multi-Category Search] 최종 \(uniquePlaces.count)개 장소 통합 발견")
-            completion(uniquePlaces, nil)
-        }
-    }
-    
-    private func mapItemsToPlaces(_ items: [MKMapItem]) -> [Place] {
-        return items.map { item in
-            Place(
-                name: item.name ?? "알 수 없는 장소",
-                address: item.placemark.title ?? "",
-                types: [], 
-                coordinate: item.placemark.coordinate,
-                isWheelchairAccessible: false // MapKit은 제공 안함
-            )
-        }
-    }
+
     
     // MARK: - 4. Nearby Places Search (Google Places API v1)
     func fetchNearbyPlaces(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
@@ -663,8 +498,8 @@ class APIService {
         request.httpMethod = "POST"
         request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.addValue(Bundle.main.bundleIdentifier ?? "kr.ac.kaist.assistiveailab.DigitalCane", forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        // 필요한 필드만 요청 (위치 정보 location 및 접근성 정보 추가)
-        request.addValue("places.displayName,places.primaryType,places.formattedAddress,places.location,places.accessibilityOptions", forHTTPHeaderField: "X-Goog-FieldMask")
+        // 필요한 필드만 요청 (위치 정보, 접근성 정보, 영업 상태 추가)
+        request.addValue("places.displayName,places.primaryType,places.formattedAddress,places.location,places.accessibilityOptions,places.businessStatus", forHTTPHeaderField: "X-Goog-FieldMask")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Google Places API 문서에 따르면, includedTypes를 생략하면 모든 장소 유형이 반환됩니다. (Table A 등 필터 제한 없음)
@@ -718,6 +553,11 @@ class APIService {
                 let places = decodedResponse.places?.compactMap { place -> Place? in
                     // 위치 정보가 없으면 제외
                     guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
+                    // 영업 중(OPERATIONAL)인 장소만 포함
+                    if let status = place.businessStatus, status != "OPERATIONAL" {
+                        return nil
+                    }
+
                     return Place(
                         name: place.displayName?.text ?? "장소",
                         address: place.formattedAddress ?? "",
@@ -727,12 +567,30 @@ class APIService {
                     )
                 }
                 
-                print("✅ [NearbyPlaces] Received \(places?.count ?? 0) places")
-                if let places = places, !places.isEmpty {
-                    print("📍 Places: \(places.prefix(5).map { $0.name })")
+                // 중복 제거 (이름과 좌표 기준)
+                var uniquePlaces: [Place] = []
+                var seenKeys = Set<String>()
+                
+                if let places = places {
+                    for place in places {
+                        // 소수점 4자리까지만 키로 사용하여 미세한 좌표 차이 무시
+                        let latKey = String(format: "%.4f", place.coordinate.latitude)
+                        let lngKey = String(format: "%.4f", place.coordinate.longitude)
+                        let key = "\(place.name)-\(latKey)-\(lngKey)"
+                        
+                        if !seenKeys.contains(key) {
+                            uniquePlaces.append(place)
+                            seenKeys.insert(key)
+                        }
+                    }
                 }
                 
-                completion(places, nil)
+                print("✅ [NearbyPlaces] Received \(uniquePlaces.count) places (Unique)")
+                if !uniquePlaces.isEmpty {
+                    print("📍 Places: \(uniquePlaces.prefix(5).map { $0.name })")
+                }
+                
+                completion(uniquePlaces, nil)
             } catch {
                 print("Places Decoding Error: \(error)")
                 if let str = String(data: data, encoding: .utf8) {
@@ -1170,11 +1028,13 @@ struct GPlace: Decodable {
     let formattedAddress: String?
     let types: [String]?
     let location: GLocation?
-    let accessibilityOptions: GAccessibilityOptions? // 접근성 옵션 추가
+    let accessibilityOptions: GAccessibilityOptions? // 접근성 옵션
+    let businessStatus: String? // 영업 상태 추가 (OPERATIONAL, CLOSED_TEMPORARILY, CLOSED_PERMANENTLY)
 }
 
 struct GAccessibilityOptions: Decodable {
     let wheelchairAccessibleEntrance: Bool?
+}
 
 struct GLocation: Decodable {
     let latitude: Double

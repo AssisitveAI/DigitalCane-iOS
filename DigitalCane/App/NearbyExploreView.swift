@@ -21,6 +21,7 @@ struct NearbyExploreView: View {
     @State private var lastAnnouncedPlace: Place? // 현재 시야각 내에 있는 장소
     
     let hapticGenerator = UIImpactFeedbackGenerator(style: .heavy)
+    @StateObject private var hapticManager = HapticManager()
     
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -102,6 +103,7 @@ struct NearbyExploreView: View {
         .background(Color.black)
         .onAppear {
             isVisible = true // 화면 진입
+            hapticManager.prepare() // 햅틱 엔진 준비
             // 화면 진입 시 자동 검색 시작
             if places.isEmpty {
                 fetchPlaces()
@@ -210,7 +212,7 @@ struct NearbyExploreView: View {
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
         
-        APIService.shared.fetchNearbyPlacesHybrid(
+        APIService.shared.fetchNearbyPlaces(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
             radius: searchRadius
@@ -306,7 +308,16 @@ struct NearbyExploreView: View {
             
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
-                SoundManager.shared.play(.finding) // 띠링 효과음 + 햅틱
+                // 거리 계산
+                let distance = currentLocation.distance(from: CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude))
+                
+                // 1. 소리 재생 (띠링)
+                SoundManager.shared.play(.finding)
+                
+                // 2. 촉각 나침반 (Core Haptics) - 거리에 따른 진동 피드백
+                hapticManager.playDistanceHaptic(distance: distance)
+                
+                // 3. 음성 안내
                 
                 // 접근성 정보가 있으면 함께 안내
                 var announcement = place.name
