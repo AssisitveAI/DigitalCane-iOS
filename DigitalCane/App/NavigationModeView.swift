@@ -167,7 +167,8 @@ struct NavigationModeView: View {
         } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
             message += "환승이 가장 적은 경로로 안내해 드릴게요. "
         } else {
-            message += "가는 방법을 안내해 드릴게요. "
+            // 기본값은 최단 시간(가장 빠른) 경로임
+            message += "가장 빠른 경로로 안내해 드릴게요. "
         }
         
         message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "
