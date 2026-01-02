@@ -172,22 +172,32 @@ struct NearbyExploreView: View {
             }
             .accessibilityElement(children: .combine)
             
-            if !isAutoRadiusEnabled {
-                Slider(
-                    value: $searchRadius,
-                    in: 20...500,
-                    step: 10,
-                    onEditingChanged: { editing in
-                        if !editing {
-                            fetchPlaces()
+            // 슬라이더는 항상 노출 (사용자 개입 허용)
+            // 단, 스마트 모드일 때는 슬라이더 비활성화 느낌보다는 "조작 시 수동 전환"되는 UX 제공
+            Slider(
+                value: $searchRadius,
+                in: 20...500,
+                step: 10,
+                onEditingChanged: { editing in
+                    if editing {
+                        // 사용자가 슬라이더를 잡는 순간 자동 모드 해제 (수동 오버라이드)
+                        if isAutoRadiusEnabled {
+                            isAutoRadiusEnabled = false
+                            UIAccessibility.post(notification: .announcement, argument: "수동 조절 모드로 전환됩니다.")
                         }
+                    } else {
+                        // 손을 뗐을 때 검색 시작
+                        fetchPlaces()
                     }
-                )
-                .accentColor(.yellow)
-            } else {
-                Text(places.count > 20 ? "번화가라 범위를 좁혔습니다." : (places.count < 3 && searchRadius >= 300 ? "한적한 곳이라 범위를 넓혔습니다." : "적절한 탐색 범위입니다."))
+                }
+            )
+            .accentColor(isAutoRadiusEnabled ? .green : .yellow) // 모드에 따라 색상 힌트
+            
+            // 스마트 모드 상태 메시지 (슬라이더 아래)
+            if isAutoRadiusEnabled {
+                Text(places.count > 20 ? "번화가라 범위를 좁혔습니다." : (places.count <= 2 && searchRadius >= 300 ? "한적한 곳이라 범위를 넓혔습니다." : "적절한 탐색 범위입니다."))
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.green)
                     .padding(.top, 4)
             }
         }
