@@ -29,7 +29,7 @@ struct VoiceCommandModeView: View {
                         .frame(width: 140, height: 140)
                         .foregroundColor(speechManager.isRecording ? .red : .yellow)
                 }
-                .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 검색합니다." : "길게 누르고 목적지를 말하세요.")
+                .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 검색합니다." : "길게 누르고 출발지와 목적지를 말하세요.")
                 
                 // 안내 텍스트
                 Text(speechManager.isRecording ? "듣고 있습니다..." : "출발지와 목적지를 말씀해 주세요. 출발지를 말하지 않으면 현위치를 중심으로 안내합니다.")
