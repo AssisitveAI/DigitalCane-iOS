@@ -48,15 +48,32 @@ struct HelpView: View {
                 Button(action: {
                     SoundManager.shared.play(.click)
                     if let address = locationManager.currentAddress {
-                        speechManager.speak("현재 위치는 \(address)입니다.")
+                        var msg = "현재 위치는 \(address)입니다."
+                        if let building = locationManager.currentBuildingName, !building.isEmpty {
+                            let context = locationManager.isInsideBuilding ? "내부에" : "주변에"
+                            msg += " \(building) \(context) 있습니다."
+                        }
+                        speechManager.speak(msg)
                     } else {
                         speechManager.speak("현재 위치 정보를 확인하고 있습니다.")
                     }
                 }) {
                     HStack {
                         Image(systemName: "location.fill")
-                        Text(locationManager.currentAddress ?? "위치 확인 중...")
-                            .dynamicFont(size: 20, weight: .bold)
+                        
+                        VStack(alignment: .leading) {
+                             Text(locationManager.currentAddress ?? "위치 확인 중...")
+                                 .dynamicFont(size: 20, weight: .bold)
+                                 .multilineTextAlignment(.leading)
+                            
+                            // 건물 정보 추가 표시 (가장 중요한 요청 사항)
+                            if let building = locationManager.currentBuildingName, !building.isEmpty {
+                                Text(locationManager.isInsideBuilding ? "(\(building) 내부)" : "(\(building) 주변)")
+                                    .dynamicFont(size: 16)
+                                    .foregroundColor(.yellow)
+                                    .bold()
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -117,7 +134,12 @@ struct HelpView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshHelpView"))) { _ in
              // 탭 진입 시 현재 위치 안내
              if let address = locationManager.currentAddress {
-                 speechManager.speak("현재 위치는 \(address)입니다.")
+                 var msg = "현재 위치는 \(address)입니다."
+                 if let building = locationManager.currentBuildingName, !building.isEmpty {
+                     let context = locationManager.isInsideBuilding ? "내부에" : "주변에"
+                     msg += " \(building) \(context) 있습니다."
+                 }
+                 speechManager.speak(msg)
              } else {
                  speechManager.speak("위치 정보를 가져오는 중입니다.")
              }
@@ -137,8 +159,16 @@ struct HelpView: View {
         }
         
         let address = locationManager.currentAddress ?? "알 수 없는 위치"
+        
+        // 상세 위치 구성
+        var detailLocation = address
+        if let building = locationManager.currentBuildingName, !building.isEmpty {
+            let context = locationManager.isInsideBuilding ? "내부" : "주변"
+            detailLocation += " (\(building) \(context))"
+        }
+        
         let mapLink = "https://maps.google.com/maps?q=\(location.coordinate.latitude),\(location.coordinate.longitude)"
-        let message = "[디지털케인 긴급 알림]\n내 위치: \(address)\n지도: \(mapLink)"
+        let message = "[디지털케인 긴급 알림]\n내 위치: \(detailLocation)\n지도: \(mapLink)"
         
         // 시스템 기본 메시지 앱 호출 (사용자에게 익숙한 환경)
         let phoneNumber = emergencyContact.filter { "0123456789".contains($0) }

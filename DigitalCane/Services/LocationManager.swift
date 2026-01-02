@@ -15,6 +15,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var lastAddressLocation: CLLocation? // 주소 변환 최적화용
     private var lastBuildingCheckLocation: CLLocation? // Overpass 건물 확인 최적화용
     
+    // 정밀 상태 정보 추가
+    @Published var isInsideBuilding: Bool = false // 건물 내부 여부 정밀 판별 결과
+
+    
     override init() {
         super.init()
         manager.delegate = self
@@ -100,17 +104,17 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 print("🏢 [Precision] You are INSIDE: \(matchedBuilding.name)")
                 
                 DispatchQueue.main.async {
-                    // Overpass로 확인된 "확실한 내부" 정보이므로 역지오코딩 결과보다 우선하여 덮어씀
-                    // 단, 이름이 "건물" 같이 모호한 경우는 제외하고 싶을 수 있으나, 
-                    // 사용자가 "어느 건물 안"인지 아는게 중요하므로 업데이트
+                    // 확실히 건물 내부임이 확인됨
+                    self.isInsideBuilding = true
                     self.currentBuildingName = matchedBuilding.name
-                    
-                    // 디버깅/안내를 위해 주소 필드에도 힌트 추가 (선택사항)
-                    // self.currentAddress = "\(matchedBuilding.name) 내부" 
                 }
             } else {
-                // 건물 밖이면 특별한 조치 없이 기존 역지오코딩 상태 유지
-                // (필요 시 "건물 밖" 상태로 리셋할 수도 있음)
+                // Ray Casting 실패 -> 건물 밖이거나 데이터 없음
+                DispatchQueue.main.async {
+                    self.isInsideBuilding = false
+                    // 여기서는 굳이 건물 이름을 리셋하지 않음 (POI로 찾은 '주변' 건물 정보라도 유지하여 힌트 제공)
+                    // 단, 너무 멀어지면 updateAddress에서 역지오코딩 시 다시 덮어써짐
+                }
             }
         }
     }
