@@ -290,17 +290,44 @@ struct NearbyExploreView: View {
         // 정밀도 향상: 시야각을 20도 -> 10도(좌우 10도)로 좁힘
         let fieldOfView = 10.0
         
-        // 시야각 내에 있는 장소 중 가장 정면(각도 차이가 작은)에 있는 장소를 탐색
-        let bestMatch = places.map { place -> (Place, Double) in
+        // 시야각 내 후보군 추출
+        let candidates = places.compactMap { place -> (Place, Double, Double)? in
             let bearing = compassManager.bearing(from: currentLocation.coordinate, to: place.coordinate)
             let diff = abs(bearing - heading)
-            let minDiff = min(diff, 360 - diff)
-            return (place, minDiff)
+            let angleDiff = min(diff, 360 - diff)
+            
+            if angleDiff < fieldOfView {
+                let distance = currentLocation.distance(from: CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude))
+                return (place, angleDiff, distance)
+            }
+            return nil
         }
-        .filter { $0.1 < fieldOfView }
-        .min { $0.1 < $1.1 } // 최소 각도 차이 우선
         
-        if let (place, _) = bestMatch {
+        // 스마트 가중치 스코어링 (Smart Weighted Scoring)
+        // 목표: "가까운 곳"을 우선하되, 거리가 비슷하면 "더 정면"인 곳을 선택
+        // 점수 공식: (거리 점수 * 0.7) + (각도 점수 * 0.3) -> 낮을수록 좋음 (Penalty Score)
+        // 거리는 로그 스케일 등을 적용할 수도 있으나, 여기선 직관적인 미터 단위와 각도를 정규화하여 비교
+        
+        let bestMatch = candidates.min { (a, b) in
+            // 정규화 (Normalization) - 대략적인 범위 가정
+            // 거리: 0~100m 기준 (그 이상은 비슷하게 취급)
+            // 각도: 0~10도 기준
+            
+            let distA = min(a.2, 100.0) / 100.0
+            let distB = min(b.2, 100.0) / 100.0
+            
+            let angleA = a.1 / 10.0
+            let angleB = b.1 / 10.0
+            
+            // 가중치 적용 (거리 70%, 각도 30%)
+            let scoreA = (distA * 0.7) + (angleA * 0.3)
+            let scoreB = (distB * 0.7) + (angleB * 0.3)
+            
+            return scoreA < scoreB
+        }
+        
+        if let match = bestMatch {
+            let place = match.0
             // 시야각 내 장소 업데이트 (UI 표시용)
             if lastAnnouncedPlace?.id != place.id {
                 lastAnnouncedPlace = place

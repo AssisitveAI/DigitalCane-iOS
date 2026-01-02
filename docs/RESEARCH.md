@@ -21,7 +21,8 @@
   1. **Building Geometry Fetch**: Overpass API로 반경 50m 내 건물의 Polygon 좌표 수집.
   2. **Ray Casting**: 사용자 좌표에서 가상의 반직선을 그어 다각형 변과의 교차 횟수(홀수/짝수)를 판별하여 내부 포함 여부 확인.
   3. **Heading Filter**: 건물 외부일 경우, 기기의 `True Heading`과 목표물 `Bearing` 간 델타($\Delta < 10^{\circ}$) 계산하여 시야각 내 장소만 안내.
-  4. **Haptic Feedback**: 거리에 따라 `Core Haptics` 강도를 동적으로 조절(거리 반비례).
+  4. **Smart Scoring**: 다중 중첩 시 `Score = (Distance * 0.7) + (AngleOfError * 0.3)` 공식을 적용, **근거리 우선(Safety-First)** 원칙 하에 가장 적합한 대상을 선정.
+  5. **Haptic Feedback**: 거리에 따라 `Core Haptics` 강도를 동적으로 조절(거리 반비례).
 
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.
