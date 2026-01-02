@@ -202,7 +202,7 @@ struct NearbyExploreView: View {
             
             // 스마트 모드 상태 메시지 (슬라이더 아래)
             if isAutoRadiusEnabled {
-                Text(places.count > 20 ? "장소가 많아 범위를 좁혔습니다." : (places.count <= 2 && searchRadius >= 300 ? "장소가 적어 범위를 넓혔습니다." : "자동으로 조절된 범위입니다."))
+                Text(places.count > 20 ? "장소가 많아 범위를 좁혔습니다. (변경 가능)" : (places.count <= 2 && searchRadius >= 300 ? "장소가 적어 범위를 넓혔습니다. (변경 가능)" : "자동으로 조절된 범위입니다. 슬라이더로 변경 가능합니다."))
                     .font(.caption)
                     .foregroundColor(.green)
                     .padding(.top, 4)
