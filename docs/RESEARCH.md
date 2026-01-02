@@ -33,7 +33,7 @@
     2.  **Tier 2 (차선)**: User Defaults (예: 설정 메뉴의 '도보 최소화', '환승 최소화' 값. Tier 1이 `nil`일 때만 적용.)
     3.  **Tier 3 (기본)**: Fastest Route (Traffic-Aware Default)
   - 특히 LLM이 반환할 수 있는 **'빈 문자열(Empty String)' 등의 노이즈를 엄격하게 처리(Strict Sanitization)**하여, 의도가 불분명할 경우 안전하게 사용자 설정값(Tier 2)으로 이양(Fallback)되도록 설계했다.
-  - 이 알고리즘은 **Active Feedback Loop**와 결합되어, 시스템이 어떤 기준을 선택했는지(예: "도보가 가장 적은 경로로 안내합니다") 음성으로 명확히 고지하여 사용자의 멘탈 모델(Mental Model)과 시스템 상태를 일치시킨다.
+  - 이 알고리즘은 **Active Feedback Loop**와 결합되어, 시스템이 어떤 기준을 선택했는지(예: "도보가 가장 적은 경로로 안내합니다") 음성으로 명확히 고지하여 사용자의 멘탈 모델(Mental Model)과 시스템 상태를 일치시킨다. 이를 위해 **Notification 기반의 상태 동기화(State Synchronization)**를 적용, 데이터 로딩과 음성 출력 간의 미세한 타이밍 차이(Race Condition)를 원천 차단했다.
 - **Smart Fail-over Mechanism**: 사용자가 특정 수단(예: "버스만 타겠다")을 고집하여 유효한 경로가 없는 경우(Dead-end), 시스템이 이를 감지하고 자동으로 '최적 경로'로 전환하여 안내하는 'Soft Fallback' 알고리즘을 적용했다. 이는 사용자에게 "안내 불가"라는 부정적 경험 대신 "대안 제시"라는 긍정적 솔루션을 제공하여 서비스 신뢰도(Reliability)를 유지하는 핵심 전략이다.
 
 ## 3. Results & Discussion
