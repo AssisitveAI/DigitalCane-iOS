@@ -41,6 +41,14 @@ class SpeechManager: ObservableObject {
     // TTS 말하기
     // interrupt: true이면 즉시 중단하고 말하기(기본값), false이면 이어서 말하기
     func speak(_ text: String, interrupt: Bool = true) {
+        // VoiceOver가 활성화되어 있으면 앱 TTS 사용 안 함 (충돌 방지)
+        // VoiceOver가 이미 화면 요소를 읽어주므로 중복 발화 방지
+        if UIAccessibility.isVoiceOverRunning {
+            // VoiceOver 사용자에게는 accessibilityAnnouncement로 전달
+            UIAccessibility.post(notification: .announcement, argument: text)
+            return
+        }
+        
         if interrupt {
             stopSpeaking() // 기존 발화 중단 후 새로운 발화
         }
