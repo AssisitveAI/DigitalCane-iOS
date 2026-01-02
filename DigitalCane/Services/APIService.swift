@@ -674,15 +674,22 @@ class APIService {
                             if blacklist.contains(amenity) { return nil }
                         }
                         
-                        // 이름 결정 로직 (이름 > 시설종류)
-                        // 단, 주차장은 이름이 없어도 "주차장" 등으로 안내 가치가 있음
+                        // 3. 이름 결정 로직 (이름 > 시설종류)
                         var displayName = nameTag
+                        
                         if displayName == nil {
+                            // 이름이 없을 때, 특정 카테고리는 일반명사로 안내 허용
                             if amenity == "parking" { displayName = "주차장" }
                             else if amenity == "toilets" { displayName = "화장실" }
                             else if shop == "convenience" { displayName = "편의점" }
-                            else { return nil } // 그 외 이름 없는 시설은 제외
+                            else { 
+                                // 이름도 없고 허용된 카테고리도 아니면 제외 (안전장치)
+                                return nil 
+                            }
                         }
+                        
+                        // 안전장치: 혹시라도 이름이 없으면 제외
+                        guard let finalName = displayName else { return nil }
                         
                         // 점 정보이지만 Ray Casting 알고리즘 일관성을 위해 1m 반경의 초미세 사각형으로 변환
                         let offset = 0.00001 // 약 1m
@@ -692,7 +699,7 @@ class APIService {
                             CLLocationCoordinate2D(latitude: lat + offset, longitude: lon + offset),
                             CLLocationCoordinate2D(latitude: lat - offset, longitude: lon + offset)
                         ]
-                        return BuildingPolygon(id: element.id, name: displayName!, points: points, type: .poi)
+                        return BuildingPolygon(id: element.id, name: finalName, points: points, type: .poi)
                     }
                     
                     return nil
