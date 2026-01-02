@@ -212,6 +212,65 @@ class NavigationManager: ObservableObject {
         self.isNavigating = true
         // 경로 검색 성공 - 대화 맥락 초기화 (새 검색은 새 대화로)
         clearConversation()
+        
+        // 안내 멘트 즉시 생성 및 발화 (데이터 불일치 방지)
+        announceOverview()
+    }
+    
+    // 전체 경로 개요 안내 (자연스러운 문장형) - Logic 주도
+    private func announceOverview() {
+        let origin = self.routeOrigin
+        let dest = self.routeDestination
+        let totalDuration = self.totalDuration
+        let totalDistance = self.totalDistance
+        let totalStops = self.totalTransitStops
+        let transitCount = self.steps.filter { $0.type != .walk }.count
+        
+        var message = ""
+        if origin != "Current Location" && !origin.isEmpty {
+            message = "\(origin)에서 \(dest)까지 "
+        } else {
+            message = "\(dest)까지 "
+        }
+        
+        // 경로 우선순위 반영 멘트 추가 (실제로 적용된 옵션 기준)
+        if let activePref = self.activeRoutingPreference {
+            if activePref == "LESS_WALKING" {
+                message += "도보가 가장 적은 경로로 안내해 드릴게요. "
+            } else if activePref == "FEWER_TRANSFERS" {
+                message += "환승이 가장 적은 경로로 안내해 드릴게요. "
+            } else {
+                message += "가장 빠른 경로로 안내해 드릴게요. "
+            }
+        } else {
+            // 기본값은 최단 시간(가장 빠른) 경로임
+            message += "가장 빠른 경로로 안내해 드릴게요. "
+        }
+        
+        message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "
+        
+        if transitCount > 0 {
+            message += "대중교통 \(transitCount)회 탑승"
+            if totalStops > 0 {
+                message += ", \(totalStops)개 정류장을 지나갑니다."
+            } else {
+                message += "합니다."
+            }
+        }
+        
+        // 기존 startNavigation 호출부(View)에서 announce를 부르도록 하는 게 아니라, 
+        // 여기서 NotificationCenter를 통해 "경로 준비 완료"를 알리고 View가 반응하게 하는 게 정석.
+        
+        // 긴급 수정: SpeechManager에 접근할 수 없으므로, message를 생성하여 Published 변수에 담아두고 View가 onReceive로 읽게 함.
+        // 또는 startNavigation이 message를 리턴하게 함? 비동기라 안됨.
+        
+        // 가장 현실적인 해결책: SpeechManager를 NavigationManager가 알 필요 없이,
+        // View에서 onChange(of: isNavigating) { if newValue { announce() } } 패턴을 쓰되,
+        // announce 함수에 필요한 데이터를 '인자'로 넘기지 말고 View가 Manager의 상태를 읽도록 함.
+        // (이미 그렇게 되어 있었는데 타이밍 문제였음)
+        
+        // 결론: startNavigation 완료 후 'Notification' 발송 -> View가 수신 -> 즉시 안내.
+        NotificationCenter.default.post(name: NSNotification.Name("DidStartNavigation"), object: nil)
     }
     
     func nextStep() {

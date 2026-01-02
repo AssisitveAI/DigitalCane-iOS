@@ -136,9 +136,12 @@ struct NavigationModeView: View {
         .onAppear {
             SoundManager.shared.play(.success)
             // 처음 시작할 때만 전체 개요 안내 (중복 방지)
-            if navigationManager.currentStepIndex == 0 {
-                announceOverview()
-            }
+            // 처음 시작할 때만 전체 개요 안내 (Notification 수신으로 대체되므로 제외하지 않음, 안전장치로 유지하되 중복 안되게 주의)
+            // NavigationManager가 직접 Notification을 쏘므로 여기서는 수동 호출 제거
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidStartNavigation"))) { _ in
+            announceOverview()
+        }
         }
     }
     
@@ -162,10 +165,15 @@ struct NavigationModeView: View {
         }
         
         // 경로 우선순위 반영 멘트 추가
-        if UserDefaults.standard.bool(forKey: "preferLessWalking") {
-            message += "도보가 가장 적은 경로로 안내해 드릴게요. "
-        } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
-            message += "환승이 가장 적은 경로로 안내해 드릴게요. "
+        // 경로 우선순위 반영 멘트 추가 (실제로 적용된 옵션 기준 - NavigationManager의 activeRoutingPreference 사용)
+        if let activePref = navigationManager.activeRoutingPreference {
+            if activePref == "LESS_WALKING" {
+                message += "도보가 가장 적은 경로로 안내해 드릴게요. "
+            } else if activePref == "FEWER_TRANSFERS" {
+                message += "환승이 가장 적은 경로로 안내해 드릴게요. "
+            } else {
+                message += "가장 빠른 경로로 안내해 드릴게요. "
+            }
         } else {
             // 기본값은 최단 시간(가장 빠른) 경로임
             message += "가장 빠른 경로로 안내해 드릴게요. "
