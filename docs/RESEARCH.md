@@ -1,10 +1,10 @@
-# Research Documentation: DigitalCane - AI-Assisted Navigation for the Visually Impaired
+# Research Documentation: DigitalCane - Spatial Cognition & Route Planning for the Visually Impaired
 
 ## Abstract
-본 기술 문서는 시각장애인을 위한 청각 및 촉각 기반 내비게이션 시스템인 'DigitalCane'의 핵심 기술과 연구 배경을 기술한다. 본 시스템은 LLM(Large Language Model)을 활용한 자연어 의도 파악과 정밀한 센서 퓨전 기술을 결합하여, 기존 시각 정보 의존적인 내비게이션의 한계를 극복하고자 하였다.
+본 기술 문서는 시각장애인을 위한 청각 및 촉각 기반 **공간 인지 및 경로 플래닝** 시스템인 'DigitalCane'의 핵심 기술과 연구 배경을 기술한다. 본 시스템은 실시간 턴바이턴 내비게이션이 아니라, 사용자가 **이동 전에 주변 환경을 인지하고 경로를 머릿속에 그릴 수 있도록** 돕는 데 초점을 둔다. LLM(Large Language Model)을 활용한 자연어 의도 파악과 정밀한 센서 퓨전 기술을 결합하여, 기존 시각 정보 의존적인 내비게이션의 한계를 극복하고자 하였다.
 
 ## 1. Introduction
-시각장애인의 독립적인 보행은 삶의 질과 직결되는 문제이다. 기존 흰지팡이는 근거리 장애물 탐지에는 효과적이나, 목적지까지의 대중교통경로안내나 주변 시설(POI) 인식에는 한계가 있다. 스마트폰 내비게이션은 시각 정보(지도)에 의존적이어서 청각만으로 복잡한 대중교통 환승이나 정확한 방향을 인지하기 어렵다. 이에 따라 우리는 AI Agent 기술과 햅틱 피드백을 융합한 보조 공학 솔루션인 DigitalCane을 제안한다.
+시각장애인의 독립적인 보행은 삶의 질과 직결되는 문제이다. 기존 흰지팡이는 근거리 장애물 탐지에는 효과적이나, 목적지까지의 경로 파악이나 주변 시설(POI) 인식에는 한계가 있다. 기존 스마트폰 내비게이션은 시각 정보(지도)에 의존적이고 실시간 턴바이턴에 초점을 맞춰, 청각만으로 복잡한 대중교통 환승을 **사전에 계획**하기 어렵다. 이에 따라 우리는 AI Agent 기술과 햅틱 피드백을 융합한 보조 공학 솔루션인 DigitalCane을 제안한다. 본 시스템은 실시간 길 안내가 아니라, **공간 인지지도 형성(Mental Map Formation)**과 **이동 전 경로 플래닝(Pre-trip Planning)**을 지원하는 데 초점을 둔다.
 
 ## 2. Methodology
 
