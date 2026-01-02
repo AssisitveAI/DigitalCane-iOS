@@ -139,9 +139,9 @@ struct NavigationModeView: View {
             // 처음 시작할 때만 전체 개요 안내 (Notification 수신으로 대체되므로 제외하지 않음, 안전장치로 유지하되 중복 안되게 주의)
             // NavigationManager가 직접 Notification을 쏘므로 여기서는 수동 호출 제거
         }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidStartNavigation"))) { _ in
             announceOverview()
-        }
         }
     }
     
