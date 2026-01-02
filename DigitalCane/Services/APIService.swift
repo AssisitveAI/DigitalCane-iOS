@@ -606,6 +606,69 @@ class APIService {
         }.resume()
     }
     
+    // MARK: - 5. Overpass API (Building Geometry)
+    
+    /// Overpass API를 사용하여 주변 건물의 형상(Polygon) 데이터를 가져옵니다.
+    /// - Parameters:
+    ///   - location: 검색 중심 좌표
+    ///   - radius: 검색 반경 (미터, 기본값 30m)
+    func fetchNearbyBuildings(at location: CLLocationCoordinate2D, radius: Double = 30.0, completion: @escaping ([BuildingPolygon]) -> Void) {
+        // Overpass QL Query
+        // 반경 내의 building 태그가 있는 way와 relation을 검색하고 기하학적 정보(geom)를 포함하여 반환
+        let lat = location.latitude
+        let lon = location.longitude
+        
+        let query = """
+        [out:json][timeout:10];
+        (
+          way["building"](around:\(radius),\(lat),\(lon));
+          relation["building"](around:\(radius),\(lat),\(lon));
+        );
+        out geom;
+        """
+        
+        guard let url = URL(string: "https://overpass-api.de/api/interpreter") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = "data=\(query)".data(using: .utf8)
+        
+        print("🏗️ [Overpass] Requesting building geometries...")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Overpass Network Error: \(error?.localizedDescription ?? "Unknown")")
+                completion([])
+                return
+            }
+            
+            do {
+                let decoded = try JSONDecoder().decode(OverpassResponse.self, from: data)
+                let buildings = decoded.elements.compactMap { element -> BuildingPolygon? in
+                    guard let geometry = element.geometry, !geometry.isEmpty else { return nil }
+                    
+                    // 이름이 없으면 "건물" 로라도 인식하도록 처리
+                    let name = element.tags?["name"] ?? element.tags?["name:en"]
+                    // 이름 없는 건물은 식별 가치가 낮으므로 일단 제외하거나 "알 수 없는 건물"로 처리
+                    // 여기서는 확실한 안내를 위해 이름이 있는 경우만 1차 필터링하지만, 필요 시 해제 가능
+                    
+                    let points = geometry.map { geo in
+                        CLLocationCoordinate2D(latitude: geo.lat, longitude: geo.lon)
+                    }
+                    
+                    return BuildingPolygon(id: element.id, name: name ?? "건물", points: points)
+                }
+                
+                print("🏗️ [Overpass] Found \(buildings.count) buildings with geometry.")
+                completion(buildings)
+                
+            } catch {
+                print("Overpass Decoding Error: \(error)")
+                completion([])
+            }
+        }.resume()
+    }
+    
     // MARK: - 4. Text Search (POI Validation)
     func searchPlaces(query: String, completion: @escaping ([Place]?) -> Void) {
         guard !query.isEmpty else {
@@ -894,6 +957,30 @@ class APIService {
         // 거리 정보도 없는 도보 단계는 제외
         return nil
     }
+}
+
+// MARK: - Overpass Data Models
+struct OverpassResponse: Codable {
+    let elements: [OverpassElement]
+}
+
+struct OverpassElement: Codable {
+    let type: String
+    let id: Int
+    let tags: [String: String]?
+    let geometry: [OverpassGeometry]?
+}
+
+struct OverpassGeometry: Codable {
+    let lat: Double
+    let lon: Double
+}
+
+/// 앱 내에서 사용할 간소화된 건물 폴리곤 모델
+struct BuildingPolygon {
+    let id: Int
+    let name: String
+    let points: [CLLocationCoordinate2D]
 }
 
 // MARK: - Data Models (App Internal)

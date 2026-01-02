@@ -29,6 +29,9 @@
     - **스마트 폴백 가이드 (Smart Fallback)**: 사용자가 요청한 교통수단으로 경로가 없거나 매우 비효율적인 경우, "요청하신 교통수단으로 이동이 어려워, 최적 경로로 안내합니다"라는 안내와 함께 자동으로 대체 경로(최단 시간)를 제공.
 
 ### 3.2. 디지털케인 모드 (Nearby Exploration)
+- **정밀 실내/외 판별 (Precision Context Awareness)**:
+  - **OpenStreetMap Overpass API 연동**: 주변 건물의 형상(Polygon, 다각형) 데이터를 실시간으로 수집.
+  - **Ray Casting 알고리즘**: 사용자의 GPS 좌표가 건물 외곽선 내부에 있는지 수학적으로 판별하여, "건물 근처"와 "건물 내부"를 명확히 구분 및 안내.
 - **가상 촉각 레이더 (Virtual Haptic Radar)**:
   - 스마트폰을 지팡이처럼 좌우로 스캔(Scanning).
   - 나침반(Magnetometer) 센서를 이용해 전방 **10도(±5도)** 범위 내의 장소만 정밀 감지.
@@ -74,11 +77,12 @@
   - `LocationManager`: CoreLocation 기반 실시간 위치 트래킹.
   - `CompassManager`: 디바이스 헤딩(Heading) 계산 및 타겟 방위각(Bearing) 매칭.
   - `SpeechManager`: SFSpeechRecognizer(STT) 및 AVSpeechSynthesizer(TTS) 통합 관리.
-- **External APIs**:
+  - **External APIs**:
   - **Google Gemini API**: 사용자 발화 의도(Intent) 파싱. (Gemini 2.0 Flash 모델)
   - **Google Maps Platform**:
     - `Routes API`: 경로 산출.
     - `Places API`: 주변 장소 탐색.
+  - **Overpass API (OSM)**: 건물 형상(Geometry) 데이터 수집 및 정밀 위치 판별.
 
 ## 5. 연구 및 검증 계획 (Research & Validation)
 - **정확도 테스트**: AI가 모호한 한국어 발음(지명)을 얼마나 정확히 필터링하고 인식하는지 검증.

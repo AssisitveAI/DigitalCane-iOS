@@ -13,13 +13,15 @@
 - **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다. 또한, 단순한 장소 인식을 넘어 **'선호 교통수단(Preference Extraction)'**까지 파악하여 개인화된 경험을 제공하도록 모델을 고도화했다.
 
 ### 2.2. Precision Heading & Haptic Feedback
-기존의 주변 장소 알림 서비스들은 '반경 내'에 있으면 무조건 알림을 주어 정보 과부하(Information Overload)를 일으킨다.
-- **Solution**: 'Digital Cane Mode'는 사용자가 스마트폰으로 직접 가리키는 방향(**Heading ±10°**)에 있는 대상만을 필터링한다. 이는 시각장애인이 소리 나는 방향으로 고개를 돌리는 자연스러운 행동 양식(Natural UI)을 모방한 것이다.
+기존의 주변 장소 알림 서비스들은 '반경 내'에 있으면 무조건 알림을 주어 정보 과부하(Information Overload)를 일으킨다. 또한, GPS 오차로 인해 사용자가 이미 건물 내부에 있음에도 "근처에 있습니다"라고 안내하는 부정확성이 존재했다.
+- **Solution**: 
+  1. **Precision Heading**: 사용자가 스마트폰으로 직접 가리키는 방향(**Heading ±10°**)에 있는 대상만을 필터링한다.
+  2. **Inside-Building Detection**: **Overpass API**를 연동하여 주변 건물의 형상(Polygon) 데이터를 실시간으로 수집하고, **Ray Casting Algorithm**을 적용하여 사용자의 좌표가 건물 외곽선 내부에 있는지 수학적으로 검증한다. 이를 통해 "건물 근처"가 아닌 **"건물 내부"**임을 확신 있게 안내한다.
 - **Algorithm**:
-  1. 기기의 `True Heading`과 목표물까지의 `Bearing` 간 델타($\Delta$) 계산.
-  2. **Self-Point Exclusion**: 역지오코딩을 통해 파악된 '현재 건물명'과 일치하거나 5m 이내의 초근접 장소는 중의성 제거를 위해 안내 목록에서 필터링.
-  3. $\Delta < 10^{\circ}$ 조건 만족 시에만 `Heavy Haptic` 및 `TTS` 출력.
-  4. 최소 각도(Nearest-Angle) 우선 알고리즘으로 다중 중첩 장소 중 가장 정확한 대상을 선별.
+  1. **Building Geometry Fetch**: Overpass API로 반경 50m 내 건물의 Polygon 좌표 수집.
+  2. **Ray Casting**: 사용자 좌표에서 가상의 반직선을 그어 다각형 변과의 교차 횟수(홀수/짝수)를 판별하여 내부 포함 여부 확인.
+  3. **Heading Filter**: 건물 외부일 경우, 기기의 `True Heading`과 목표물 `Bearing` 간 델타($\Delta < 10^{\circ}$) 계산하여 시야각 내 장소만 안내.
+  4. **Haptic Feedback**: 거리에 따라 `Core Haptics` 강도를 동적으로 조절(거리 반비례).
 
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.

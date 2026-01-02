@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -45,7 +45,7 @@
 		ABF873C1938A7D1354C3DC3E /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		C7A1AF6F75E91B4C2936F932 /* NavigationModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationModeView.swift; sourceTree = "<group>"; };
 		DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneApp.swift; sourceTree = "<group>"; };
-		DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DigitalCane.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "디지털케인.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -67,7 +67,7 @@
 		560AB5EEF78462F0E58D359A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */,
+				DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -128,7 +128,7 @@
 			packageProductDependencies = (
 			);
 			productName = DigitalCane;
-			productReference = DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */;
+			productReference = DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -150,7 +150,6 @@
 			);
 			mainGroup = 639BA214060B4CCA3B822193;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -260,6 +259,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 96DKJANZN4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";
 				INFOPLIST_KEY_CFBundleName = "디지털케인";
@@ -283,6 +283,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 96DKJANZN4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";
 				INFOPLIST_KEY_CFBundleName = "디지털케인";
