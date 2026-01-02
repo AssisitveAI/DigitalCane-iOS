@@ -65,10 +65,35 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             guard let self = self, let placemark = placemarks?.first else { return }
             
             // 1. 상위 레벨 영역(대학 캠퍼스, 공원 등) 우선 추출
-            // areasOfInterest가 있으면 우선 사용 (예: "KAIST", "서울대학교", "올림픽공원")
-            // 없으면 placemark.name 사용 (건물명 또는 주소 일부)
+            // areasOfInterest가 있으면 우선 사용 (예: "KAIST", "서울대학교")
             let areaOfInterest = placemark.areasOfInterest?.first
-            let buildingName = areaOfInterest ?? placemark.name
+            var validBuildingName: String? = areaOfInterest
+            
+            // 2. placemark.name 검증 (주소 정보가 이름으로 오는 경우 필터링)
+            if validBuildingName == nil, let name = placemark.name {
+                // 숫자만 있는 경우 ("200") 제외
+                let isNumeric = CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: name.trimmingCharacters(in: .whitespaces)))
+                
+                // 주소 구성요소(동, 번지)와 정확히 일치하는 경우 제외
+                let isAddressPart = (name == placemark.thoroughfare) || 
+                                  (name == placemark.subThoroughfare) ||
+                                  (name == placemark.subLocality) ||
+                                  (name == placemark.locality)
+                
+                // "구성동 200" 처럼 동 이름이 포함된 경우 제외 (건물명이 동 이름을 포함하는 경우는 드묾, 아파트 제외)
+                var isFullAddress = false
+                if let thoroughfare = placemark.thoroughfare, name.contains(thoroughfare) {
+                     // 단, "행정복지센터" 같은 진짜 건물명일 수도 있으므로 길이 체크 등 추가 고려 가능하나, 
+                     // 보통 "OO동 123" 형태가 많으므로 안전하게 제외
+                     isFullAddress = true
+                }
+                
+                if !isNumeric && !isAddressPart && !isFullAddress {
+                    validBuildingName = name
+                }
+            }
+            
+            let buildingName = validBuildingName
             
             // 2. 주소 문자열 조합 (한국 주소 체계 고려)
             var addressParts: [String] = []
