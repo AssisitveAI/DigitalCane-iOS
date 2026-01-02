@@ -16,6 +16,9 @@ class NavigationManager: ObservableObject {
     // 현재 경로에 실제로 적용된 탐색 옵션 (음성 피드백용)
     @Published var activeRoutingPreference: String? = nil
     
+    // 현재 경로에 적용된 선호 교통수단 (음성 피드백용)
+    @Published var activeTransportModes: [String]? = nil
+    
     // 대화 맥락 유지를 위한 히스토리 (AI가 이전 대화를 기억)
     @Published var conversationHistory: [String] = []
     @Published var isWaitingForClarification = false // 추가 정보 대기 중
@@ -164,7 +167,10 @@ class NavigationManager: ObservableObject {
                                         appliedPref = "FEWER_TRANSFERS"
                                     }
                                 }
+                                    }
+                                }
                                 self.activeRoutingPreference = appliedPref
+                                self.activeTransportModes = preferredModes // 교통수단 정보 저장
                                 
                                 self.startNavigation(with: routeData, 
                                                      origin: origin, 

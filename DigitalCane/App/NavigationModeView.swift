@@ -164,8 +164,27 @@ struct NavigationModeView: View {
             message = "\(dest)까지 "
         }
         
-        // 경로 우선순위 반영 멘트 추가
-        // 경로 우선순위 반영 멘트 추가 (실제로 적용된 옵션 기준 - NavigationManager의 activeRoutingPreference 사용)
+        // 경로 우선순위 반영 멘트 추가 (교통수단 + 옵션 조합)
+        // 1. 교통수단 파트 ("요청하신 00 경로 중")
+        var modePrefix = ""
+        if let modes = navigationManager.activeTransportModes, !modes.isEmpty {
+            let modeNames = modes.compactMap { mode -> String? in
+                switch mode {
+                case "BUS": return "버스"
+                case "SUBWAY": return "지하철"
+                case "TRAIN": return "기차"
+                default: return nil
+                }
+            }.joined(separator: " 또는 ")
+            
+            if !modeNames.isEmpty {
+                modePrefix = "요청하신 \(modeNames) 경로 중 "
+            }
+        }
+        
+        message += modePrefix
+        
+        // 2. 선호옵션 파트 ("00 경로로")
         if let activePref = navigationManager.activeRoutingPreference {
             if activePref == "LESS_WALKING" {
                 message += "도보가 가장 적은 경로로 안내해 드릴게요. "
@@ -175,7 +194,7 @@ struct NavigationModeView: View {
                 message += "가장 빠른 경로로 안내해 드릴게요. "
             }
         } else {
-            // 기본값은 최단 시간(가장 빠른) 경로임
+            // 기본값
             message += "가장 빠른 경로로 안내해 드릴게요. "
         }
         
