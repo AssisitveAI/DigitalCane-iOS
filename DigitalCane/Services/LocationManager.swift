@@ -93,6 +93,12 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 // Overpass 결과가 없을 때만 역지오코딩 결과를 사용
                 if self.currentBuildingName == nil || self.currentBuildingName?.isEmpty == true {
                     self.currentBuildingName = buildingName
+                    
+                    // areasOfInterest(캠퍼스, 공원 등)가 있으면 "내부"로 표시
+                    if areaOfInterest != nil {
+                        self.isInsideBuilding = true
+                        print("📍 [Fallback] areasOfInterest: \(areaOfInterest ?? "nil")")
+                    }
                 }
                 
                 self.lastAddressLocation = location
@@ -127,11 +133,9 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 }
             } else {
                 // Ray Casting 실패 -> 건물 밖이거나 데이터 없음
-                DispatchQueue.main.async {
-                    self.isInsideBuilding = false
-                    // POI 이름을 리셋하여 역지오코딩이 Fallback으로 동작할 수 있게 함
-                    self.currentBuildingName = nil
-                }
+                // currentBuildingName은 리셋하지 않음 (역지오코딩의 areasOfInterest 유지)
+                // isInsideBuilding도 유지 (역지오코딩에서 areasOfInterest가 있으면 true로 설정됨)
+                print("🏢 [Overpass] No building matched, keeping fallback data")
             }
         }
     }
