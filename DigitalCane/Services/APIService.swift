@@ -57,13 +57,20 @@ class APIService {
         6. 결과는 반드시 아래의 JSON 형식 하나만 출력하세요. 다른 텍스트는 일절 포함하지 마세요.
 
         Output format:
-        {"destinationName": "추출된 목적지", "originName": "추출된 출발지", "transportMode": "TRANSIT", "preferredTransportModes": ["BUS", "SUBWAY"], "clarificationNeeded": false, "clarificationQuestion": null}
+        {"destinationName": "추출된 목적지", "originName": "추출된 출발지", "transportMode": "TRANSIT", "preferredTransportModes": ["BUS", "SUBWAY"], "routingPreference": "LESS_WALKING", "clarificationNeeded": false, "clarificationQuestion": null}
+
         
         Usage Guide for 'preferredTransportModes':
         - If user says "버스로 가고 싶어" -> ["BUS"]
         - If user says "지하철이나 기차로 안내해줘" -> ["SUBWAY", "RAIL"]
         - If user doesn't specify or says "상관없어" -> null
         - Supported values: "BUS", "SUBWAY", "RAIL"
+        
+        Usage Guide for 'routingPreference':
+        - If user says "최소 환승으로 가고 싶어", "갈아타기 싫어" -> "FEWER_TRANSFERS"
+        - If user says "걷기 싫어", "도보 최소화해줘", "다리가 아파" -> "LESS_WALKING"
+        - If user says nothing specific -> null
+        - Supported values: "LESS_WALKING", "FEWER_TRANSFERS"
         """
         
         // Gemini API 요청 바디
@@ -240,6 +247,7 @@ class APIService {
                     to destination: String, 
                     currentLocation: CLLocation? = nil, 
                     preferredModes: [String]? = nil,
+                    routingPreference: String? = nil, // 경로 선호 옵션 추가
                     completion: @escaping (RouteData?, Bool) -> Void) { // Bool: isFallbackApplied (선호 수단 실패로 전체 검색했는지)
         guard !googleApiKey.isEmpty else {
             print("Google API Key is missing")
@@ -300,8 +308,12 @@ class APIService {
         // 1. transitPreferences 객체 준비
         var transitPreferences: [String: Any] = [:]
         
-        // 2. 도보 최소화 (안전 우선)
-        if UserDefaults.standard.bool(forKey: "preferLessWalking") {
+        // 2. 도보 최소화 및 환승 최소화 (사용자 의도 우선 반영)
+        if let preference = routingPreference {
+            transitPreferences["routingPreference"] = preference
+            print("🔹 Applying Routing Preference: \(preference)")
+        } else if UserDefaults.standard.bool(forKey: "preferLessWalking") {
+            // 기본 설정(User Default) 반영
             transitPreferences["routingPreference"] = "LESS_WALKING"
         }
         
@@ -482,7 +494,8 @@ class APIService {
                     // Fallback Logic: 선호 수단으로 검색했는데 실패했다면, 전체 수단으로 재검색
                     if let modes = preferredModes, !modes.isEmpty {
                         print("🔄 Fallback: Retrying with ALL modes...")
-                        self.fetchRoute(from: origin, to: destination, currentLocation: currentLocation, preferredModes: nil) { retryData, _ in
+                        // 재시도 시에는 복잡한 제약조건을 풀고 기본 검색 시도
+                        self.fetchRoute(from: origin, to: destination, currentLocation: currentLocation, preferredModes: nil, routingPreference: nil) { retryData, _ in
                             // 재시도 결과 반환 (이때는 Fallback이 적용되었음을 알림 -> true)
                             completion(retryData, true)
                         }
@@ -1062,7 +1075,10 @@ struct LocationIntent: Codable {
     let clarificationNeeded: Bool?
     let clarificationQuestion: String?
     // 사용자 선호 교통수단 (Optional)
+    // 사용자 선호 교통수단 (Optional)
     let preferredTransportModes: [String]?
+    // 경로 선호 옵션 (LESS_WALKING, FEWER_TRANSFERS)
+    let routingPreference: String?
 }
 
 struct RouteData {
