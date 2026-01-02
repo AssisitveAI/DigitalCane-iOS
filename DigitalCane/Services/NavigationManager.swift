@@ -132,13 +132,14 @@ class NavigationManager: ObservableObject {
                     // 출발지 결정
                     let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
                     
-                    // 3. 경로 검색
                     let preferredModes = intent.preferredTransportModes
+                    let routingPreference = intent.routingPreference
                     
                     APIService.shared.fetchRoute(from: origin, 
                                                  to: validatedDestination, 
                                                  currentLocation: locationManager.currentLocation,
-                                                 preferredModes: preferredModes) { [weak self] routeData, isFallbackApplied in
+                                                 preferredModes: preferredModes,
+                                                 routingPreference: routingPreference) { [weak self] routeData, isFallbackApplied in
                         guard let self = self else { return }
                         
                         DispatchQueue.main.async {
