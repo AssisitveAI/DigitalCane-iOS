@@ -253,7 +253,21 @@ class APIService {
         request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         // API 키 제한(iOS 앱 제한)을 통과하기 위해 Bundle ID 헤더 추가
         request.addValue(Bundle.main.bundleIdentifier ?? "kr.ac.kaist.assistiveailab.DigitalCane", forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        request.addValue("*", forHTTPHeaderField: "X-Goog-FieldMask") // 모든 필드 요청 (transitDetails 등 포함)
+        // FieldMask 최적화: 네트워크 효율을 위해 꼭 필요한 필드만 요청
+        // routes.legs.steps: 경로 단계 (이동, 환승 등)
+        // routes.legs.distanceMeters, routes.legs.duration: 전체 거리 및 시간
+        // routes.legs.localizedValues: 현지화된 시간/거리 텍스트 ("15분", "500m")
+        let fields = [
+            "routes.legs.steps.navigationInstruction",
+            "routes.legs.steps.transitDetails",
+            "routes.legs.steps.localizedValues",
+            "routes.legs.steps.travelMode",
+            "routes.legs.distanceMeters",
+            "routes.legs.duration",
+            "routes.legs.localizedValues"
+        ].joined(separator: ",")
+        
+        request.addValue(fields, forHTTPHeaderField: "X-Goog-FieldMask")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Origin 설정: 좌표가 있으면 좌표 우선, 없으면 주소(텍스트) 사용
