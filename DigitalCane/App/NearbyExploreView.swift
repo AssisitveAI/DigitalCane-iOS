@@ -10,10 +10,12 @@ struct NearbyExploreView: View {
     
     @State private var places: [Place] = []
     @State private var isLoading = false
-    @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
+    @AppStorage("defaultSearchRadius") private var searchRadius: Double = 100.0 // 초기값 조정 (Auto-tuning 시작점)
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
+    @AppStorage("isAutoRadiusEnabled") private var isAutoRadiusEnabled: Bool = true // 자동 조절 켜기/끄기 옵션
     @State private var isVisible = false // 화면 표시 여부 추가
     @State private var isScanningMode = false // 스캔 모드 활성화 여부
+    @State private var isAutoTuning = false // 자동 조절 중인지 여부
     
     // 마지막으로 안내한 장소 및 시간 (중복 안내 방지)
     @State private var lastAnnouncedPlaceId: UUID?
@@ -146,45 +148,51 @@ struct NearbyExploreView: View {
     // 반경 조절 뷰
     var radiusControlView: some View {
         VStack {
-            Text("탐색 반경: \(Int(searchRadius))m")
-                .font(.title3)
-                .foregroundColor(.white)
-                .accessibilityHidden(true)
+            HStack {
+                Text(isAutoRadiusEnabled ? "스마트 반경: \(Int(searchRadius))m" : "탐색 반경: \(Int(searchRadius))m")
+                    .font(.title3)
+                    .foregroundColor(isAutoRadiusEnabled ? .green : .white)
+                
+                Spacer()
+                
+                // 자동 모드 토글 버튼
+                Button(action: {
+                    isAutoRadiusEnabled.toggle()
+                    if isAutoRadiusEnabled {
+                        // 켜는 순간 자동 조절 시도
+                        fetchPlaces(forceAutoTune: true)
+                    }
+                }) {
+                    Image(systemName: isAutoRadiusEnabled ? "bolt.badge.a.fill" : "slider.horizontal.3")
+                        .foregroundColor(isAutoRadiusEnabled ? .green : .gray)
+                        .font(.title2)
+                }
+                .accessibilityLabel(isAutoRadiusEnabled ? "스마트 반경 켜짐" : "수동 반경 모드")
+                .accessibilityHint("두 번 탭하여 모드를 전환합니다.")
+            }
+            .accessibilityElement(children: .combine)
             
-            Slider(
-                value: $searchRadius,
-                in: 20...500,
-                step: 10,
-                onEditingChanged: { editing in
-                    if !editing {
-                        // 슬라이드 조작이 끝났을 때 API 호출 및 자동 재시작
-                        fetchPlaces()
+            if !isAutoRadiusEnabled {
+                Slider(
+                    value: $searchRadius,
+                    in: 20...500,
+                    step: 10,
+                    onEditingChanged: { editing in
+                        if !editing {
+                            fetchPlaces()
+                        }
                     }
-                }
-            )
-            .accentColor(.yellow)
-            .accessibilityLabel("탐색 반경")
-            .accessibilityValue("\(Int(searchRadius)) 미터")
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment:
-                    if searchRadius < 500 {
-                        searchRadius += 10
-                        fetchPlaces()
-                    }
-                case .decrement:
-                    if searchRadius > 20 {
-                        searchRadius -= 10
-                        fetchPlaces()
-                    }
-                default: break
-                }
+                )
+                .accentColor(.yellow)
+            } else {
+                Text(places.count > 20 ? "번화가라 범위를 좁혔습니다." : (places.count < 3 && searchRadius >= 300 ? "한적한 곳이라 범위를 넓혔습니다." : "적절한 탐색 범위입니다."))
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.top, 4)
             }
         }
         .padding()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("탐색 반경 조절, 현재 \(Int(searchRadius)) 미터")
-        .accessibilityHint("위아래로 스와이프하여 조절하면 자동으로 장소를 다시 검색합니다.")
+        // 접근성 최적화: 자동 모드일 때는 슬라이더 숨김 처리
     }
     
     // Google Places API 기반 주변 장소 검색 (안정적)
@@ -192,7 +200,9 @@ struct NearbyExploreView: View {
     @State private var lastFetchTime: Date = .distantPast
     private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
     
-    private func fetchPlaces() {
+    private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
+    
+    private func fetchPlaces(forceAutoTune: Bool = false) {
         guard let location = locationManager.currentLocation else {
             locationManager.requestLocation()
             return
@@ -208,6 +218,9 @@ struct NearbyExploreView: View {
             return
         }
         lastFetchTime = now
+        
+        // 자동 조절 강제 요청 시
+        if forceAutoTune { isAutoTuning = true }
         
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
@@ -248,6 +261,40 @@ struct NearbyExploreView: View {
                     
                     self.places = filteredPlaces
                     
+                    // 스마트 반경 조절 (Smart Radius Adjustment)
+                    // 조건: 자동 모드 켜짐 + 로딩 중이 아님(재귀 방지) + 사용자 개입 없음
+                    if self.isAutoRadiusEnabled {
+                        let count = self.places.count
+                        var newRadius = self.searchRadius
+                        var needsRetry = false
+                        
+                        if count > 20 && self.searchRadius > 50 {
+                            // 너무 많음 -> 좁히기 (혼잡도 감소)
+                            newRadius = max(30, self.searchRadius * 0.5) // 절반으로 축소
+                            needsRetry = true
+                            print("📉 [Smart Radius] Too crowed (\(count) places). Reducing radius to \(Int(newRadius))m")
+                        } else if count <= 2 && self.searchRadius < 300 {
+                            // 너무 적음 -> 넓히기 (탐색 확장)
+                            newRadius = min(500, self.searchRadius * 2.0) // 2배 확장
+                            needsRetry = true
+                            print("📈 [Smart Radius] Too sparse (\(count) places). Expanding radius to \(Int(newRadius))m")
+                        }
+                        
+                        if needsRetry && !self.isAutoTuning { // 무한 루프 방지 (한 번의 사이클만 허용하거나 플래그 처리)
+                            self.searchRadius = newRadius
+                            self.isAutoTuning = true // 튜닝 시작
+                            // 즉시 재검색 (디바운싱 무시 필요할 수 있으나, 여기선 자연스럽게 호출)
+                            // 딜레이를 주어 사용자에게 "조절 중임"을 인식시킬 수도 있음
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                self.fetchPlaces(forceAutoTune: false)
+                            }
+                            return // 현재 결과는 무시하고 재검색 결과를 기다림
+                        } else {
+                            // 최적화 완료 or 한계 도달
+                            self.isAutoTuning = false
+                        }
+                    }
+                    
                     print("✅ [Hybrid] 주변 장소 \(filteredPlaces.count)개 검색됨 (원본: \(fetchedPlaces.count)개)")
                     if !filteredPlaces.isEmpty {
                         // 데이터 수신 즉시 자동 시작
@@ -255,11 +302,21 @@ struct NearbyExploreView: View {
                         
                         // 효과음 및 안내
                         SoundManager.shared.play(.success)
-                        UIAccessibility.post(notification: .announcement, argument: "디지털케인 활성화. \(fetchedPlaces.count)개 장소 감지됨")
+                        
+                        // 멘트 차별화
+                        if self.isAutoRadiusEnabled && self.isAutoTuning {
+                           UIAccessibility.post(notification: .announcement, argument: "밀도에 맞춰 탐색 반경을 \(Int(self.searchRadius))미터로 조절했습니다. \(fetchedPlaces.count)개 장소 감지됨")
+                        } else {
+                           UIAccessibility.post(notification: .announcement, argument: "디지털케인 활성화. \(fetchedPlaces.count)개 장소 감지됨")
+                        }
                     } else {
                         // 장소 없음 사운드
                         SoundManager.shared.play(.failure)
-                        UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
+                        if self.isAutoRadiusEnabled && self.searchRadius >= 500 {
+                             UIAccessibility.post(notification: .announcement, argument: "최대 반경까지 넓혔으나 장소가 없습니다.")
+                        } else {
+                             UIAccessibility.post(notification: .announcement, argument: "반경 내 장소 없음")
+                        }
                     }
                 }
                 
