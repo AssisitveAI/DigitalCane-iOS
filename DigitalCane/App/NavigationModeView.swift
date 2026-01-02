@@ -8,6 +8,9 @@ struct NavigationModeView: View {
     @EnvironmentObject var speechManager: SpeechManager
     @EnvironmentObject var locationManager: LocationManager // 날씨 API 호출을 위한 위치 정보 필요
     
+    // Quick Win 3: 복사 완료 피드백용
+    @State private var showCopiedFeedback = false
+    
     var body: some View {
         VStack(spacing: 0) {
             // 상단 요약 (총 시간 및 거리 포함)
@@ -37,6 +40,37 @@ struct NavigationModeView: View {
             .padding(.top, 20)
             .padding(.bottom, 15)
             .background(Color.white.opacity(0.03))
+            // Quick Win 3: 길게 누르면 경로 정보 복사
+            .onLongPressGesture {
+                let displayOrigin = navigationManager.routeOrigin == "Current Location" ? "현위치" : navigationManager.routeOrigin
+                let copyText = "[\(displayOrigin) → \(navigationManager.routeDestination)] \(navigationManager.currentRouteDescription)"
+                UIPasteboard.general.string = copyText
+                
+                SoundManager.shared.play(.success)
+                speechManager.speak("경로 정보가 복사되었습니다.")
+                
+                withAnimation {
+                    showCopiedFeedback = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation {
+                        showCopiedFeedback = false
+                    }
+                }
+            }
+            .overlay(
+                Group {
+                    if showCopiedFeedback {
+                        Text("복사 완료!")
+                            .font(.caption)
+                            .foregroundColor(.black)
+                            .padding(8)
+                            .background(Color.yellow)
+                            .cornerRadius(8)
+                            .transition(.opacity)
+                    }
+                }
+            )
             
             // 단계별 안내 리스트 (인지지도 형성에 최적화된 리스트 방식)
             ScrollViewReader { proxy in
@@ -145,71 +179,12 @@ struct NavigationModeView: View {
         }
     }
     
-    // 전체 경로 개요 안내 (자연스러운 문장형)
+    // 전체 경로 개요 안내 (Quick Win 1: 중복 로직 제거 - NavigationManager의 메시지 사용)
     private func announceOverview() {
-        let origin = navigationManager.routeOrigin
-        let dest = navigationManager.routeDestination
-        let totalSteps = navigationManager.steps.count
-        let totalDistance = navigationManager.totalDistance
-        let totalDuration = navigationManager.totalDuration
-        let totalStops = navigationManager.totalTransitStops
+        // NavigationManager가 생성한 기본 메시지 사용
+        var message = navigationManager.routeOverviewMessage
         
-        // 대중교통 탑승 횟수 계산 (walk 제외)
-        let transitCount = navigationManager.steps.filter { $0.type != .walk }.count
-        
-        var message = ""
-        if origin != "Current Location" && !origin.isEmpty {
-            message = "\(origin)에서 \(dest)까지 "
-        } else {
-            message = "\(dest)까지 "
-        }
-        
-        // 경로 우선순위 반영 멘트 추가 (교통수단 + 옵션 조합)
-        // 1. 교통수단 파트 ("요청하신 00 경로 중")
-        var modePrefix = ""
-        if let modes = navigationManager.activeTransportModes, !modes.isEmpty {
-            let modeNames = modes.compactMap { mode -> String? in
-                switch mode {
-                case "BUS": return "버스"
-                case "SUBWAY": return "지하철"
-                case "TRAIN": return "기차"
-                default: return nil
-                }
-            }.joined(separator: " 또는 ")
-            
-            if !modeNames.isEmpty {
-                modePrefix = "요청하신 \(modeNames) 경로 중 "
-            }
-        }
-        
-        message += modePrefix
-        
-        // 2. 선호옵션 파트 ("00 경로로")
-        if let activePref = navigationManager.activeRoutingPreference {
-            if activePref == "LESS_WALKING" {
-                message += "도보가 가장 적은 경로로 안내해 드릴게요. "
-            } else if activePref == "FEWER_TRANSFERS" {
-                message += "환승이 가장 적은 경로로 안내해 드릴게요. "
-            } else {
-                message += "가장 빠른 경로로 안내해 드릴게요. "
-            }
-        } else {
-            // 기본값
-            message += "가장 빠른 경로로 안내해 드릴게요. "
-        }
-        
-        message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "
-        
-        if transitCount > 0 {
-            message += "대중교통 \(transitCount)회 탑승"
-            if totalStops > 0 {
-                message += ", \(totalStops)개 정류장을 지나갑니다."
-            } else {
-                message += "합니다."
-            }
-        }
-        
-        // 날씨 정보 가져오기 및 안내
+        // 날씨 정보 추가 (View에서만 접근 가능한 LocationManager 사용)
         if let location = locationManager.currentLocation {
             WeatherService.shared.fetchCurrentWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude) { weatherInfo, _ in
                 DispatchQueue.main.async {

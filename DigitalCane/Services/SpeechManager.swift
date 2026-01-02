@@ -47,7 +47,10 @@ class SpeechManager: ObservableObject {
         
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
-        utterance.rate = 0.5
+        
+        // Quick Win 2: 사용자 설정에 따른 TTS 속도 적용
+        let savedRate = UserDefaults.standard.float(forKey: "speechRate")
+        utterance.rate = savedRate > 0 ? savedRate : 0.5 // 기본값 0.5
         
         // 오디오 세션 설정
         let audioSession = AVAudioSession.sharedInstance()

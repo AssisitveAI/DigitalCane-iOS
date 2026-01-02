@@ -19,6 +19,9 @@ class NavigationManager: ObservableObject {
     // 현재 경로에 적용된 선호 교통수단 (음성 피드백용)
     @Published var activeTransportModes: [String]? = nil
     
+    // Quick Win 1: 경로 요약 메시지 (중복 로직 제거)
+    @Published var routeOverviewMessage: String = ""
+    
     // 대화 맥락 유지를 위한 히스토리 (AI가 이전 대화를 기억)
     @Published var conversationHistory: [String] = []
     @Published var isWaitingForClarification = false // 추가 정보 대기 중
@@ -266,18 +269,10 @@ class NavigationManager: ObservableObject {
             }
         }
         
-        // 기존 startNavigation 호출부(View)에서 announce를 부르도록 하는 게 아니라, 
-        // 여기서 NotificationCenter를 통해 "경로 준비 완료"를 알리고 View가 반응하게 하는 게 정석.
+        // Quick Win 1: 메시지를 Published 변수에 저장하여 View가 읽도록 함
+        self.routeOverviewMessage = message
         
-        // 긴급 수정: SpeechManager에 접근할 수 없으므로, message를 생성하여 Published 변수에 담아두고 View가 onReceive로 읽게 함.
-        // 또는 startNavigation이 message를 리턴하게 함? 비동기라 안됨.
-        
-        // 가장 현실적인 해결책: SpeechManager를 NavigationManager가 알 필요 없이,
-        // View에서 onChange(of: isNavigating) { if newValue { announce() } } 패턴을 쓰되,
-        // announce 함수에 필요한 데이터를 '인자'로 넘기지 말고 View가 Manager의 상태를 읽도록 함.
-        // (이미 그렇게 되어 있었는데 타이밍 문제였음)
-        
-        // 결론: startNavigation 완료 후 'Notification' 발송 -> View가 수신 -> 즉시 안내.
+        // Notification 발송 -> View가 수신 -> 즉시 안내.
         NotificationCenter.default.post(name: NSNotification.Name("DidStartNavigation"), object: nil)
     }
     

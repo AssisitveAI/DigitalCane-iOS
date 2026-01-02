@@ -7,6 +7,14 @@ struct SettingsView: View {
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
     @AppStorage("fontScale") private var fontScale: Double = 1.0
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
+    @AppStorage("speechRate") private var speechRate: Double = 0.5 // Quick Win 2: TTS 속도 설정
+    
+    // Quick Win 2: 속도를 사람이 읽을 수 있는 텍스트로 변환
+    private var speechRateDescription: String {
+        if speechRate < 0.4 { return "느리게" }
+        else if speechRate < 0.55 { return "보통" }
+        else { return "빠르게" }
+    }
     
     var body: some View {
         NavigationView {
@@ -28,6 +36,27 @@ struct SettingsView: View {
                             if fontScale < 2.0 { fontScale += 0.1 }
                         case .decrement:
                             if fontScale > 0.8 { fontScale -= 0.1 }
+                        default: break
+                        }
+                    }
+                    
+                    // Quick Win 2: TTS 속도 설정
+                    VStack(alignment: .leading) {
+                        Text("음성 안내 속도: \(speechRateDescription)")
+                            .dynamicFont(size: 18, weight: .bold)
+                        
+                        Slider(value: $speechRate, in: 0.3...0.7, step: 0.05)
+                            .accentColor(.yellow)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("음성 안내 속도 조절")
+                    .accessibilityValue(speechRateDescription)
+                    .accessibilityAdjustableAction { direction in
+                        switch direction {
+                        case .increment:
+                            if speechRate < 0.7 { speechRate += 0.05 }
+                        case .decrement:
+                            if speechRate > 0.3 { speechRate -= 0.05 }
                         default: break
                         }
                     }
