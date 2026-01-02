@@ -89,7 +89,7 @@ struct HelpGuideView: View {
                         .cornerRadius(15)
                     }
                     .accessibilityLabel(guide.title)
-                    .accessibilityHint(guide.content)
+                    .accessibilityHint("두 번 탭하면 상세 내용을 들을 수 있습니다.")
                 }
                 
                 // 하단 여백
