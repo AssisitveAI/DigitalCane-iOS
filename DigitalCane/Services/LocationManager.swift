@@ -113,9 +113,19 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         APIService.shared.fetchNearbyBuildings(at: location.coordinate) { [weak self] buildings in
             guard let self = self else { return }
             
-            // Ray Casting Algorithm으로 내 위치가 포함된 건물 찾기
-            // 여러 건물이 겹칠 경우 가장 먼저 발견된 것 사용 (추후 면적 작은 순 등으로 고도화 가능)
-            if let matchedObject = buildings.first(where: { $0.points.contains(location.coordinate) }) {
+            // Ray Casting Algorithm으로 내 위치가 포함된 건물/영역 찾기
+            // 우선순위: 구체적인 건물(.building) > 대규모 구역(.area)
+            let candidates = buildings.filter { $0.points.contains(location.coordinate) }
+            
+            // 정렬 로직: building 우선
+            let matchedObject = candidates.sorted { (a, b) -> Bool in
+                // 작은 범위가 우선 (building < area)
+                let aScore = (a.type == .building) ? 0 : 2
+                let bScore = (b.type == .building) ? 0 : 2
+                return aScore < bScore
+            }.first
+            
+            if let matchedObject = matchedObject {
                 print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
                 
                 DispatchQueue.main.async {
@@ -125,9 +135,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                     // 타입에 따라 컨텍스트 설정 (건물은 "내부", POI는 "바로 앞/안")
                     if matchedObject.type == .building {
                         self.isInsideBuilding = true
+                    } else if matchedObject.type == .area {
+                        // 대규모 구역(캠퍼스 등)도 "내부"로 간주
+                        self.isInsideBuilding = true
                     } else {
-                        // POI(점)의 경우 1m 반경 내에 들어온 것이므로 '도착'으로 간주해도 무방하나, 
-                        // 건물 내부라는 표현보다는 '해당 장소'에 있다는 의미로 true 유지하되, UI 표현에서 유연하게 대처
                         self.isInsideBuilding = true 
                     }
                 }
@@ -135,7 +146,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 // Ray Casting 실패 -> 건물 밖이거나 데이터 없음
                 // currentBuildingName은 리셋하지 않음 (역지오코딩의 areasOfInterest 유지)
                 // isInsideBuilding도 유지 (역지오코딩에서 areasOfInterest가 있으면 true로 설정됨)
-                print("🏢 [Overpass] No building matched, keeping fallback data")
+                print("🏢 [Overpass] No building/area matched, keeping fallback data")
             }
         }
     }

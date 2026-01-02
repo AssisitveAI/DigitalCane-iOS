@@ -654,10 +654,21 @@ class APIService {
         let query = """
         [out:json][timeout:10];
         (
+          // 1. 주변 정밀 탐색 (반경 \(radius)m)
           way["building"](around:\(radius),\(lat),\(lon));
           relation["building"](around:\(radius),\(lat),\(lon));
           node["amenity"](around:\(radius),\(lat),\(lon));
           node["shop"](around:\(radius),\(lat),\(lon));
+          
+          // 2. 대규모 구역 포함 여부 확인 (Context)
+          // 현재 좌표가 포함된(is_in) 영역 중 대학, 공원, 병원 등 대규모 시설 검색
+          is_in(\(lat),\(lon))->.a;
+          way.a["amenity"="university"];
+          relation.a["amenity"="university"];
+          way.a["leisure"="park"];
+          relation.a["leisure"="park"];
+          way.a["landuse"="campus"];
+          relation.a["landuse"="campus"];
         );
         out geom;
         """
@@ -684,7 +695,16 @@ class APIService {
                     if let geometry = element.geometry, !geometry.isEmpty {
                          let name = element.tags?["name"] ?? element.tags?["name:en"]
                          let points = geometry.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
-                         return BuildingPolygon(id: element.id, name: name ?? "건물", points: points, type: .building)
+                     
+                         // 타입 판별: 대규모 구역(university, park, campus) 우선 확인
+                         var type: BuildingPolygon.ObjectType = .building
+                         if element.tags?["amenity"] == "university" || 
+                            element.tags?["leisure"] == "park" ||
+                            element.tags?["landuse"] == "campus" {
+                             type = .area
+                         }
+                     
+                         return BuildingPolygon(id: element.id, name: name ?? "건물", points: points, type: type)
                     }
                     
                     // 2. Node (POI 점) - 건물이 아닌 경우
@@ -1060,6 +1080,7 @@ struct BuildingPolygon {
     enum ObjectType {
         case building
         case poi
+        case area // 대규모 구역 (대학교, 공원 등)
     }
     
     let id: Int
