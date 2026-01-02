@@ -13,33 +13,30 @@ struct HelpGuideView: View {
     }
     
     let guides = [
-        HelpItem(title: "디지털케인 (주변 탐색)", 
+        HelpItem(title: "주변 탐색", 
                  content: """
                  휴대폰이 가리키는 방향에 있는 장소를 음성과 진동으로 알려드립니다.
                  현재 어떤 건물이나 상점 안에 있는지도 알 수 있습니다.
                  """, 
                  iconName: "sensor.tag.radiowaves.forward.fill"),
         
-        HelpItem(title: "경로 탐색", 
+        HelpItem(title: "대중교통 안내", 
                  content: """
-                 화면을 길게 누른 상태에서 목적지를 말씀해 주세요.
-                 '버스로', '환승 적게', '걷기 싫어' 같은 요청도 이해합니다.
-                 경로가 준비되면 어떤 옵션이 적용되었는지 음성으로 확인해 드립니다.
-                 목적지 부분을 길게 누르면 경로 정보를 복사할 수 있습니다.
+                 화면을 길게 누른 상태에서 출발지와 목적지를 말씀해 주세요.
+                 출발지를 말하지 않으면 현재 위치에서 출발합니다.
+                 '버스로', '환승 적게' 같은 요청도 이해합니다.
                  """, 
                  iconName: "bus.fill"),
         
-        HelpItem(title: "도움 요청 (SOS)", 
+        HelpItem(title: "도움 요청", 
                  content: """
-                 길을 잃었을 때 'SOS' 탭을 선택하세요.
-                 위치 버튼을 누르면 현재 주소를 음성으로 들을 수 있고, 문자 버튼을 누르면 보호자에게 위치가 전송됩니다.
+                 'SOS' 탭에서 현재 위치를 확인하거나, 보호자에게 문자를 보낼 수 있습니다.
                  """, 
                  iconName: "exclamationmark.triangle.fill"),
                  
         HelpItem(title: "설정", 
                  content: """
-                 글자 크기, 음성 속도, 탐색 반경 등을 조절할 수 있습니다.
-                 보호자 연락처도 여기서 등록해 두세요.
+                 글자 크기, 음성 속도, 보호자 연락처 등을 설정할 수 있습니다.
                  """, 
                  iconName: "gearshape.fill")
     ]
