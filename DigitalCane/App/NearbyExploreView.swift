@@ -219,8 +219,6 @@ struct NearbyExploreView: View {
         }
         lastFetchTime = now
         
-        // 자동 조절 강제 요청 시
-        if forceAutoTune { isAutoTuning = true }
         
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
