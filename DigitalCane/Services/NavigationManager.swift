@@ -150,7 +150,12 @@ class NavigationManager: ObservableObject {
                             self.isLoading = false
                             if let routeData = routeData {
                                 // 실제 적용된 옵션 저장 (우선순위: Intent -> Settings -> nil)
-                                var appliedPref = routingPreference
+                                // 빈 문자열("")도 nil처럼 취급하여 설정값이 무시되지 않도록 함
+                                var appliedPref: String? = nil
+                                if let intentPref = routingPreference, !intentPref.isEmpty {
+                                    appliedPref = intentPref
+                                }
+                                
                                 if appliedPref == nil {
                                     // Intent가 없으면 설정값을 확인하여 무엇이 적용되었는지 추적
                                     if UserDefaults.standard.bool(forKey: "preferLessWalking") {
