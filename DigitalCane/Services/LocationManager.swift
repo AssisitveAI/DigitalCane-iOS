@@ -64,35 +64,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "ko_KR")) { [weak self] placemarks, error in
             guard let self = self, let placemark = placemarks?.first else { return }
             
-            // 1. 상위 레벨 영역(대학 캠퍼스, 공원 등) 우선 추출
-            // areasOfInterest가 있으면 우선 사용 (예: "KAIST", "서울대학교")
+            // 1. 역지오코딩 정보에서 유효한 장소명 추출
+            // CLPlacemark 문서에 따르면 'name'은 주소를 포함할 수 있으므로 신뢰하지 않음.
+            // 명확한 관심 지점(POI)인 'areasOfInterest'만 Fallback 데이터로 사용.
             let areaOfInterest = placemark.areasOfInterest?.first
-            var validBuildingName: String? = areaOfInterest
+            let validBuildingName: String? = areaOfInterest
             
-            // 2. placemark.name 검증 (주소 정보가 이름으로 오는 경우 필터링)
-            if validBuildingName == nil, let name = placemark.name {
-                // 숫자만 있는 경우 ("200") 제외
-                let isNumeric = CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: name.trimmingCharacters(in: .whitespaces)))
-                
-                // 주소 구성요소(동, 번지)와 정확히 일치하는 경우 제외
-                let isAddressPart = (name == placemark.thoroughfare) || 
-                                  (name == placemark.subThoroughfare) ||
-                                  (name == placemark.subLocality) ||
-                                  (name == placemark.locality)
-                
-                // "구성동 200" 처럼 동 이름이 포함된 경우 제외 (건물명이 동 이름을 포함하는 경우는 드묾, 아파트 제외)
-                var isFullAddress = false
-                if let thoroughfare = placemark.thoroughfare, name.contains(thoroughfare) {
-                     // 단, "행정복지센터" 같은 진짜 건물명일 수도 있으므로 길이 체크 등 추가 고려 가능하나, 
-                     // 보통 "OO동 123" 형태가 많으므로 안전하게 제외
-                     isFullAddress = true
-                }
-                
-                if !isNumeric && !isAddressPart && !isFullAddress {
-                    validBuildingName = name
-                }
-            }
-            
+            // 필터링 로직 제거하고 areasOfInterest만 채택
             let buildingName = validBuildingName
             
             // 2. 주소 문자열 조합 (한국 주소 체계 고려)

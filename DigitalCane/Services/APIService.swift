@@ -793,7 +793,8 @@ class APIService {
                     "radius": 20.0
                 ]
             ],
-            "maxResultCount": 1
+            "maxResultCount": 1,
+            "rankPreference": "DISTANCE" // 거리순 정렬 (가장 가까운 곳 우선)
         ]
         
         do {
