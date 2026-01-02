@@ -765,6 +765,65 @@ class APIService {
         }.resume()
     }
     
+    // MARK: - Google Places API (Recall Place Name)
+    // Overpass에서 "건물"이라고만 나오고 이름이 없을 때, Google Places API로 이름을 보완
+    func fetchNearbyPlaceName(at coordinate: CLLocationCoordinate2D, completion: @escaping (String?) -> Void) {
+        let apiKey = self.googleApiKey // Routes API 키 재사용
+        guard !apiKey.isEmpty else { 
+            print("⚠️ Google API Key missing for Places")
+            completion(nil)
+            return 
+        }
+        
+        let url = URL(string: "https://places.googleapis.com/v1/places:searchNearby")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        request.addValue("places.displayName", forHTTPHeaderField: "X-Goog-FieldMask")
+        
+        // 반경 20m 내에서 검색
+        let requestBody: [String: Any] = [
+            "locationRestriction": [
+                "circle": [
+                    "center": [
+                        "latitude": coordinate.latitude,
+                        "longitude": coordinate.longitude
+                    ],
+                    "radius": 20.0
+                ]
+            ],
+            "maxResultCount": 1
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            completion(nil)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                completion(nil)
+                return
+            }
+            
+            do {
+                let decoded = try JSONDecoder().decode(PlacesResponse.self, from: data)
+                if let firstPlace = decoded.places?.first, let name = firstPlace.displayName?.text {
+                    print("🏛️ [Google Places] Found Name: \(name)")
+                    completion(name)
+                } else {
+                    completion(nil)
+                }
+            } catch {
+                print("Google Places Decode Error: \(error)")
+                completion(nil)
+            }
+        }.resume()
+    }
+    
     // MARK: - 4. Text Search (POI Validation)
     func searchPlaces(query: String, completion: @escaping ([Place]?) -> Void) {
         guard !query.isEmpty else {

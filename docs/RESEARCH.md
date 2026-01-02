@@ -13,16 +13,31 @@
 - **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다. 또한, 단순한 장소 인식을 넘어 **'선호 교통수단(Preference Extraction)'**까지 파악하여 개인화된 경험을 제공하도록 모델을 고도화했다.
 
 ### 2.2. Precision Heading & Haptic Feedback
-기존의 주변 장소 알림 서비스들은 '반경 내'에 있으면 무조건 알림을 주어 정보 과부하(Information Overload)를 일으킨다. 또한, GPS 오차로 인해 사용자가 이미 건물 내부에 있음에도 "근처에 있습니다"라고 안내하는 부정확성이 존재했다.
-- **Solution**: 
-  1. **Precision Heading**: 사용자가 스마트폰으로 직접 가리키는 방향(**Heading ±10°**)에 있는 대상만을 필터링한다.
-  2. **Inside-Building Detection**: **Overpass API**를 연동하여 주변 건물의 형상(Polygon) 데이터를 실시간으로 수집하고, **Ray Casting Algorithm**을 적용하여 사용자의 좌표가 건물 외곽선 내부에 있는지 수학적으로 검증한다. 이를 통해 "건물 근처"가 아닌 **"건물 내부"**임을 확신 있게 안내한다.
-- **Algorithm**:
-  1. **Building Geometry Fetch**: Overpass API로 반경 50m 내 건물의 Polygon 좌표 수집.
-  2. **Ray Casting**: 사용자 좌표에서 가상의 반직선을 그어 다각형 변과의 교차 횟수(홀수/짝수)를 판별하여 내부 포함 여부 확인.
-  3. **Heading Filter**: 건물 외부일 경우, 기기의 `True Heading`과 목표물 `Bearing` 간 델타($\Delta < 10^{\circ}$) 계산하여 시야각 내 장소만 안내.
-  4. **Smart Scoring**: 다중 중첩 시 `Score = (Distance * 0.7) + (AngleOfError * 0.3)` 공식을 적용, **근거리 우선(Safety-First)** 원칙 하에 가장 적합한 대상을 선정.
-  5. **Haptic Feedback**: 거리에 따라 `Core Haptics` 강도를 동적으로 조절(거리 반비례).
+### 2.2. Hybrid Location Context Awareness with Tiered Fallback
+기존 위치 기반 서비스의 한계는 **부정확성(Inaccuracy)**과 **정보 부재(Missing Data)**였다. GPS만으로는 실내/실외 구분이 불가능하며, OpenStreetMap(Overpass)은 건물 형상은 정확하나 명칭(Name)이 누락된 경우가 많다. 이를 해결하기 위해 우리는 **3계층 하이브리드 위치 인식 엔진**을 개발했다.
+
+1.  **Geometric Analysis (OpenStreetMap)**:
+    - **Overpass API**를 사용하여 주변 건물의 Polygon 좌표뿐만 아니라 대규모 구역(`is_in` Query: 대학 캠퍼스, 공원 등) 정보를 수집한다.
+    - **Ray Casting Algorithm**을 통해 사용자가 특정 건물 또는 구역 내부에 있는지 판별하여 "근처"가 아닌 **"내부"**라는 정확한 물리적 맥락을 확보한다.
+
+2.  **Semantic Enrichment (Google Places API)**:
+    - Overpass에서 건물 형태는 찾았으나 이름이 누락된 경우(예: "building"), 즉시 **Google Places API (New)**를 호출하여 현 위치의 정확한 장소명(예: "KAIST N1")을 가져온다.
+    - 이를 통해 **기하학적 정확성(OSM)**과 **의미적 정확성(Google)**을 결합한 하이브리드 정보를 제공한다.
+
+3.  **Tiered Fallback System (계층형 안전장치)**:
+    - 정보의 가용성에 따라 **5단계 Fallback** 구조를 적용하여 어떤 상황에서도 최선의 위치 정보를 제공한다.
+    - **Level 1 (Best)**: 건물 내부 + 정확한 이름 (Overpass Geometry + Google Name)
+    - **Level 2**: 건물 내부 (Overpass Building)
+    - **Level 3**: 대규모 구역 내부 (Overpass Area - 예: "KAIST 내부")
+    - **Level 4**: 관심 영역 (Apple AreasOfInterest - 예: "올림픽공원")
+    - **Level 5**: 지번 주소 (Geocoder)
+
+- **Algorithm Detail**:
+  1. **Fetch**: Overpass API로 Building/Area Polygon 수집.
+  2. **Check**: Ray Casting으로 내부 포함 여부 확인.
+  3. **Sort**: 여러 구역 중첩 시 `Building(구체적) > Area(광역)` 순으로 우선순위 정렬.
+  4. **Enrich**: 선택된 객체의 이름이 비어있으면 Google Places API로 이름 보완(Backfilling).
+  5. **Feedback**: 최종 결정된 컨텍스트("OOO 내부")를 TTS로 안내.
 
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.
