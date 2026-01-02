@@ -61,6 +61,10 @@ class NavigationManager: ObservableObject {
     func findRoute(to userVoiceInput: String, locationManager: LocationManager, onFailure: @escaping (String) -> Void) {
         print("User Voice Input: \(userVoiceInput)")
         
+        // 새로운 검색 시작 시 상태 변수 초기화 (이전 값 잔재 방지)
+        self.activeRoutingPreference = nil
+        self.activeTransportModes = nil
+        
         // 대화 히스토리에 현재 입력 추가 (Main Thread에서 호출됨을 가정하거나, 안전하게 즉시 추가)
         self.conversationHistory.append("사용자: \(userVoiceInput)")
         
@@ -296,6 +300,8 @@ class NavigationManager: ObservableObject {
         self.routeDestination = ""
         self.totalDistance = ""
         self.totalDuration = ""
+        self.activeRoutingPreference = nil
+        self.activeTransportModes = nil
         self.currentStepIndex = 0
         // 대화 맥락 초기화 (탭 전환 시)
         clearConversation()
