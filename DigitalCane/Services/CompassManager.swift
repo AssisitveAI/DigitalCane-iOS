@@ -15,6 +15,8 @@ class CompassManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func start() {
+        // AR/카메라 모드(세로) 자세에 최적화: Portrait 기준 헤딩 사용
+        locationManager.headingOrientation = .portrait
         locationManager.startUpdatingHeading()
     }
     

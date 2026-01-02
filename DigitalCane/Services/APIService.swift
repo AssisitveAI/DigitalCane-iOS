@@ -623,6 +623,8 @@ class APIService {
         (
           way["building"](around:\(radius),\(lat),\(lon));
           relation["building"](around:\(radius),\(lat),\(lon));
+          node["amenity"](around:\(radius),\(lat),\(lon));
+          node["shop"](around:\(radius),\(lat),\(lon));
         );
         out geom;
         """
@@ -645,18 +647,29 @@ class APIService {
             do {
                 let decoded = try JSONDecoder().decode(OverpassResponse.self, from: data)
                 let buildings = decoded.elements.compactMap { element -> BuildingPolygon? in
-                    guard let geometry = element.geometry, !geometry.isEmpty else { return nil }
-                    
-                    // 이름이 없으면 "건물" 로라도 인식하도록 처리
-                    let name = element.tags?["name"] ?? element.tags?["name:en"]
-                    // 이름 없는 건물은 식별 가치가 낮으므로 일단 제외하거나 "알 수 없는 건물"로 처리
-                    // 여기서는 확실한 안내를 위해 이름이 있는 경우만 1차 필터링하지만, 필요 시 해제 가능
-                    
-                    let points = geometry.map { geo in
-                        CLLocationCoordinate2D(latitude: geo.lat, longitude: geo.lon)
+                    // 1. Way/Relation (건물 Polygon)
+                    if let geometry = element.geometry, !geometry.isEmpty {
+                         let name = element.tags?["name"] ?? element.tags?["name:en"]
+                         let points = geometry.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
+                         return BuildingPolygon(id: element.id, name: name ?? "건물", points: points, type: .building)
                     }
                     
-                    return BuildingPolygon(id: element.id, name: name ?? "건물", points: points)
+                    // 2. Node (POI 점) - 건물이 아닌 경우, 점 하나를 아주 작은 사각형으로 처리(Trick)하여 Ray Casting 로직 재사용
+                    else if element.type == "node", let lat = element.lat, let lon = element.lon {
+                        let name = element.tags?["name"] ?? element.tags?["name:en"] ?? element.tags?["amenity"] ?? element.tags?["shop"] ?? "주변 시설"
+                        
+                        // 점 정보이지만 Ray Casting 알고리즘 일관성을 위해 1m 반경의 초미세 사각형으로 변환
+                        let offset = 0.00001 // 약 1m
+                        let points = [
+                            CLLocationCoordinate2D(latitude: lat - offset, longitude: lon - offset),
+                            CLLocationCoordinate2D(latitude: lat + offset, longitude: lon - offset),
+                            CLLocationCoordinate2D(latitude: lat + offset, longitude: lon + offset),
+                            CLLocationCoordinate2D(latitude: lat - offset, longitude: lon + offset)
+                        ]
+                        return BuildingPolygon(id: element.id, name: name, points: points, type: .poi)
+                    }
+                    
+                    return nil
                 }
                 
                 print("🏗️ [Overpass] Found \(buildings.count) buildings with geometry.")
@@ -967,6 +980,8 @@ struct OverpassResponse: Codable {
 struct OverpassElement: Codable {
     let type: String
     let id: Int
+    let lat: Double? // Node일 경우 존재
+    let lon: Double? // Node일 경우 존재
     let tags: [String: String]?
     let geometry: [OverpassGeometry]?
 }
@@ -977,10 +992,17 @@ struct OverpassGeometry: Codable {
 }
 
 /// 앱 내에서 사용할 간소화된 건물 폴리곤 모델
+/// 앱 내에서 사용할 간소화된 건물/POI 폴리곤 모델
 struct BuildingPolygon {
+    enum ObjectType {
+        case building
+        case poi
+    }
+    
     let id: Int
     let name: String
     let points: [CLLocationCoordinate2D]
+    let type: ObjectType
 }
 
 // MARK: - Data Models (App Internal)

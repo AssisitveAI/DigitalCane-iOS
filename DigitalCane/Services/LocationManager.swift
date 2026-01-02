@@ -100,13 +100,21 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             
             // Ray Casting Algorithm으로 내 위치가 포함된 건물 찾기
             // 여러 건물이 겹칠 경우 가장 먼저 발견된 것 사용 (추후 면적 작은 순 등으로 고도화 가능)
-            if let matchedBuilding = buildings.first(where: { $0.points.contains(location.coordinate) }) {
-                print("🏢 [Precision] You are INSIDE: \(matchedBuilding.name)")
+            if let matchedObject = buildings.first(where: { $0.points.contains(location.coordinate) }) {
+                print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
                 
                 DispatchQueue.main.async {
-                    // 확실히 건물 내부임이 확인됨
-                    self.isInsideBuilding = true
-                    self.currentBuildingName = matchedBuilding.name
+                    // Overpass 정보 우선 적용
+                    self.currentBuildingName = matchedObject.name
+                    
+                    // 타입에 따라 컨텍스트 설정 (건물은 "내부", POI는 "바로 앞/안")
+                    if matchedObject.type == .building {
+                        self.isInsideBuilding = true
+                    } else {
+                        // POI(점)의 경우 1m 반경 내에 들어온 것이므로 '도착'으로 간주해도 무방하나, 
+                        // 건물 내부라는 표현보다는 '해당 장소'에 있다는 의미로 true 유지하되, UI 표현에서 유연하게 대처
+                        self.isInsideBuilding = true 
+                    }
                 }
             } else {
                 // Ray Casting 실패 -> 건물 밖이거나 데이터 없음

@@ -88,7 +88,7 @@ struct NearbyExploreView: View {
                 
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
-                    Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 천천히 돌려 주변을 탐색하세요.")
+                    Text("디지털 지팡이가 활성화되었습니다.\n휴대폰을 세워 카메라로 촬영하듯 주변을 비추세요.")
                         .font(.headline)
                         .foregroundColor(.yellow)
                         .multilineTextAlignment(.center)
