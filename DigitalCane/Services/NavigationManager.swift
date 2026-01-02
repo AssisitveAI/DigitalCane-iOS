@@ -169,7 +169,8 @@ class NavigationManager: ObservableObject {
                                         appliedPref = "LESS_WALKING"
                                     } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
                                         appliedPref = "FEWER_TRANSFERS"
-                                    }
+                                        }
+                                }
                                 self.activeRoutingPreference = appliedPref
                                 self.activeTransportModes = preferredModes // 교통수단 정보 저장
                                 
