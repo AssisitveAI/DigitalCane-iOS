@@ -85,7 +85,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             
             DispatchQueue.main.async {
                 self.currentAddress = fullAddress
-                self.currentBuildingName = buildingName
+                
+                // Overpass API에서 이미 POI 이름을 가져온 경우 덮어쓰지 않음 (Fallback 전용)
+                // Overpass 결과가 없을 때만 역지오코딩 결과를 사용
+                if self.currentBuildingName == nil || self.currentBuildingName?.isEmpty == true {
+                    self.currentBuildingName = buildingName
+                }
+                
                 self.lastAddressLocation = location
             }
         }
@@ -120,8 +126,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 // Ray Casting 실패 -> 건물 밖이거나 데이터 없음
                 DispatchQueue.main.async {
                     self.isInsideBuilding = false
-                    // 여기서는 굳이 건물 이름을 리셋하지 않음 (POI로 찾은 '주변' 건물 정보라도 유지하여 힌트 제공)
-                    // 단, 너무 멀어지면 updateAddress에서 역지오코딩 시 다시 덮어써짐
+                    // POI 이름을 리셋하여 역지오코딩이 Fallback으로 동작할 수 있게 함
+                    self.currentBuildingName = nil
                 }
             }
         }
