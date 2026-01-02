@@ -169,11 +169,10 @@ struct NavigationModeView: View {
         .background(Color.black.ignoresSafeArea())
         .onAppear {
             SoundManager.shared.play(.success)
-            // 처음 시작할 때만 전체 개요 안내 (중복 방지)
-            // 처음 시작할 때만 전체 개요 안내 (Notification 수신으로 대체되므로 제외하지 않음, 안전장치로 유지하되 중복 안되게 주의)
-            // NavigationManager가 직접 Notification을 쏘므로 여기서는 수동 호출 제거
+            // View가 나타날 때 경로 요약 발화 (Notification 놓침 방지)
+            announceOverview()
         }
-
+        // Notification은 백업으로 유지 (다른 경로로 진입 시)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidStartNavigation"))) { _ in
             announceOverview()
         }
