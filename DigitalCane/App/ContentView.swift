@@ -91,18 +91,21 @@ struct ContentView: View {
             case 0: // 디지털케인 (주변 탐색)
                 navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshNearbyExplore"), object: nil)
+                speechManager.speak("주변 탐색")
             case 1: // 대중교통경로안내
                 // 탭 진입 시 항상 초기화 (사용자 요청: 매번 새로 시작)
                 navigationManager.stopNavigation()
+                speechManager.speak("경로 탐색")
             case 2: // 도움 요청 (SOS)
                 navigationManager.stopNavigation() // 대중교통경로안내 중이었다면 정리
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshHelpView"), object: nil)
+                speechManager.speak("도움 요청")
             case 3: // 설정
                 navigationManager.stopNavigation()
+                speechManager.speak("설정")
             case 4: // 도움말
                 navigationManager.stopNavigation()
-                // 도움말 탭 진입 시 자동 요약 안내
-                speechManager.speak("사용 설명서입니다. 화면을 터치하여 각 기능의 설명을 들어보세요.")
+                speechManager.speak("도움말")
             default:
                 break
             }
