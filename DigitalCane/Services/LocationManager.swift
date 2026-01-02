@@ -129,8 +129,26 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
                 
                 DispatchQueue.main.async {
-                    // Overpass 정보 우선 적용
-                    self.currentBuildingName = matchedObject.name
+                    // Overpass 이름이 불충분하면 Google Places로 보완
+                    let overpassName = matchedObject.name
+                    
+                    if overpassName == "건물" || overpassName.isEmpty {
+                        // 이름이 없으면 Google Places 호출
+                        print("🟡 [Hybrid] Overpass name missing, calling Google Places...")
+                        APIService.shared.fetchNearbyPlaceName(at: location.coordinate) { googleName in
+                            DispatchQueue.main.async {
+                                if let googleName = googleName {
+                                    self.currentBuildingName = googleName
+                                    print("✅ [Hybrid] Name updated by Google: \(googleName)")
+                                } else {
+                                    self.currentBuildingName = overpassName
+                                }
+                            }
+                        }
+                    } else {
+                        // Overpass 이름이 충분하면 그대로 사용
+                        self.currentBuildingName = overpassName
+                    }
                     
                     // 타입에 따라 컨텍스트 설정 (건물은 "내부", POI는 "바로 앞/안")
                     if matchedObject.type == .building {
