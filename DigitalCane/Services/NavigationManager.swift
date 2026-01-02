@@ -10,7 +10,11 @@ class NavigationManager: ObservableObject {
     @Published var routeOrigin: String = ""
     @Published var routeDestination: String = ""
     @Published var totalDistance: String = "" // 총 거리 추가
+
     @Published var totalDuration: String = "" // 총 소요 시간 추가
+    
+    // 현재 경로에 실제로 적용된 탐색 옵션 (음성 피드백용)
+    @Published var activeRoutingPreference: String? = nil
     
     // 대화 맥락 유지를 위한 히스토리 (AI가 이전 대화를 기억)
     @Published var conversationHistory: [String] = []
@@ -145,6 +149,18 @@ class NavigationManager: ObservableObject {
                         DispatchQueue.main.async {
                             self.isLoading = false
                             if let routeData = routeData {
+                                // 실제 적용된 옵션 저장 (우선순위: Intent -> Settings -> nil)
+                                var appliedPref = routingPreference
+                                if appliedPref == nil {
+                                    // Intent가 없으면 설정값을 확인하여 무엇이 적용되었는지 추적
+                                    if UserDefaults.standard.bool(forKey: "preferLessWalking") {
+                                        appliedPref = "LESS_WALKING"
+                                    } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
+                                        appliedPref = "FEWER_TRANSFERS"
+                                    }
+                                }
+                                self.activeRoutingPreference = appliedPref
+                                
                                 self.startNavigation(with: routeData, 
                                                      origin: origin, 
                                                      destination: displayName, 

@@ -313,8 +313,11 @@ class APIService {
             transitPreferences["routingPreference"] = preference
             print("🔹 Applying Routing Preference: \(preference)")
         } else if UserDefaults.standard.bool(forKey: "preferLessWalking") {
-            // 기본 설정(User Default) 반영
+            // 기본 설정(User Default) 반영: 도보 최소화
             transitPreferences["routingPreference"] = "LESS_WALKING"
+        } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
+            // 기본 설정(User Default) 반영: 환승 최소화
+            transitPreferences["routingPreference"] = "FEWER_TRANSFERS"
         }
         
         // 3. 사용자 선호 교통수단 (Strict Filtering)
