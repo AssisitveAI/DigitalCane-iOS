@@ -15,14 +15,14 @@ struct HelpGuideView: View {
     let guides = [
         HelpItem(title: "주변 탐색", 
                  content: """
-                 휴대폰이 가리키는 방향에 있는 장소를 음성과 진동으로 알려드립니다.
+                 휴대폰이 향하는 방향에 있는 장소를 음성과 진동으로 알려드립니다.
                  현재 어떤 건물이나 상점 안에 있는지도 알 수 있습니다.
                  """, 
                  iconName: "sensor.tag.radiowaves.forward.fill"),
         
         HelpItem(title: "대중교통 안내", 
                  content: """
-                 화면을 길게 누른 상태에서 출발지와 목적지를 말씀해 주세요.
+                 화면 아무 곳이나 길게 누르면서 출발지와 목적지를 말씀해 주세요.
                  출발지를 말하지 않으면 현재 위치에서 출발합니다.
                  '버스로', '환승 적게' 같은 요청도 이해합니다.
                  """, 
@@ -30,7 +30,7 @@ struct HelpGuideView: View {
         
         HelpItem(title: "도움 요청", 
                  content: """
-                 'SOS' 탭에서 현재 위치를 확인하거나, 보호자에게 문자를 보낼 수 있습니다.
+                 길을 잃거나 도움이 필요할 때, 하단의 'SOS' 탭에서 현재 위치를 확인하거나 보호자에게 문자를 보낼 수 있습니다.
                  """, 
                  iconName: "exclamationmark.triangle.fill"),
                  
