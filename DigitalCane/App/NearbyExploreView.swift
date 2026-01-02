@@ -200,7 +200,7 @@ struct NearbyExploreView: View {
     @State private var lastFetchTime: Date = .distantPast
     private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
     
-    private let minimumFetchInterval: TimeInterval = 3.0 // 3초 디바운싱
+
     
     private func fetchPlaces(forceAutoTune: Bool = false) {
         guard let location = locationManager.currentLocation else {
