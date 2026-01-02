@@ -141,7 +141,15 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                                     self.currentBuildingName = googleName
                                     print("✅ [Hybrid] Name updated by Google: \(googleName)")
                                 } else {
-                                    self.currentBuildingName = overpassName
+                                    // Google 실패 시, Overpass "건물"은 사용하지 않고 역지오코딩(Fallback) 유지
+                                    // 단, 역지오코딩 값도 없으면 어쩔 수 없이 "건물" 사용? 아니면 표시 안 함?
+                                    // 표시 안 하는 게 나음 ("건물 내부"보다는 주소가 나음)
+                                    if self.currentBuildingName == nil {
+                                        // 역지오코딩조차 없으면 "건물" 사용
+                                        self.currentBuildingName = overpassName
+                                    } else {
+                                        print("❌ [Hybrid] Google failed & Overpass generic. Keeping Fallback: \(self.currentBuildingName ?? "nil")")
+                                    }
                                 }
                             }
                         }
