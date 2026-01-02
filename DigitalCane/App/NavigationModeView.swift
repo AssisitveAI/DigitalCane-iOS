@@ -156,9 +156,18 @@ struct NavigationModeView: View {
         
         var message = ""
         if origin != "Current Location" && !origin.isEmpty {
-            message = "\(origin)에서 \(dest)까지 가는 방법을 안내해 드릴게요. "
+            message = "\(origin)에서 \(dest)까지 "
         } else {
-            message = "\(dest)까지 가는 방법을 안내해 드릴게요. "
+            message = "\(dest)까지 "
+        }
+        
+        // 경로 우선순위 반영 멘트 추가
+        if UserDefaults.standard.bool(forKey: "preferLessWalking") {
+            message += "도보가 가장 적은 경로로 안내해 드릴게요. "
+        } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
+            message += "환승이 가장 적은 경로로 안내해 드릴게요. "
+        } else {
+            message += "가는 방법을 안내해 드릴게요. "
         }
         
         message += "약 \(totalDuration) 걸리고, 총 \(totalDistance)입니다. "

@@ -3,6 +3,7 @@ import SwiftUI
 // 설정 뷰
 struct SettingsView: View {
     @AppStorage("preferLessWalking") private var preferLessWalking: Bool = false
+    @AppStorage("preferFewerTransfers") private var preferFewerTransfers: Bool = false
     @AppStorage("defaultSearchRadius") private var searchRadius: Double = 200.0
     @AppStorage("fontScale") private var fontScale: Double = 1.0
     @AppStorage("emergencyContact") private var emergencyContact: String = ""
@@ -43,6 +44,17 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityHint("켜면 걷는 거리를 줄이는 경로를, 끄면 시간이 가장 적게 걸리는 경로를 찾습니다.")
+                    
+                    Toggle(isOn: $preferFewerTransfers) {
+                        VStack(alignment: .leading) {
+                            Text("환승 최소화")
+                                .dynamicFont(size: 18, weight: .bold)
+                            Text(preferFewerTransfers ? "갈아타는 횟수가 적은 경로를 우선합니다." : "빠른 경로를 우선합니다.")
+                                .dynamicFont(size: 14)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .accessibilityHint("켜면 갈아타는 횟수를 줄이는 경로를 찾습니다.")
                 }
                 
                 Section(header: Text("디지털케인 설정")) {
