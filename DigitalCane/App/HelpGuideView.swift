@@ -15,9 +15,8 @@ struct HelpGuideView: View {
     let guides = [
         HelpItem(title: "디지털케인 (주변 탐색)", 
                  content: """
-                 휴대폰을 들고 몸을 천천히 좌우로 돌리면, 그 방향에 있는 장소를 음성과 진동으로 알려드립니다.
-                 주변이 복잡하면 자동으로 탐색 범위를 좁히고, 한적하면 넓힙니다.
-                 현재 어떤 건물이나 상점 안에 있는지도 정확히 알려드립니다.
+                 휴대폰이 가리키는 방향에 있는 장소를 음성과 진동으로 알려드립니다.
+                 현재 어떤 건물이나 상점 안에 있는지도 알 수 있습니다.
                  """, 
                  iconName: "sensor.tag.radiowaves.forward.fill"),
         
