@@ -27,6 +27,12 @@
 ### 2.3. Multi-modal Routing Optimization
 시각장애인은 환승 저항이 매우 높다. 따라서 단순 `최단 거리`가 아닌, `도보 최소화(Minimal Walking)` 또는 `단순 환승`이 중요하다.
 - **Adaptive Routing**: 사용자의 상황에 따라 '안전 우선(Less Walking)'과 '시간 우선(Fastest)' 모드를 동적으로 전환할 수 있는 하이브리드 라우팅 엔진을 설계하여 Google Routes API에 파라미터를 동적으로 주입한다.
+- **Intent-Based Routing Arbitration (의도 기반 경로 중재)**:
+  - 사용자의 자연어 발화(Intent)와 앱 내 설정값(Settings)이 상충할 때를 대비한 **3단계 우선순위 계층(Hierarchy)**을 정립했다.
+    1.  **Tier 1 (최우선)**: Explicit Voice Command (예: "걷기 싫어", "환승 적게" 발화 시 즉시 적용)
+    2.  **Tier 2 (차선)**: User Defaults (예: 설정 메뉴의 '도보 최소화', '환승 최소화' 값)
+    3.  **Tier 3 (기본)**: Fastest Route (Traffic-Aware Default)
+  - 이 알고리즘은 **Active Feedback Loop**와 결합되어, 시스템이 어떤 기준을 선택했는지(예: "도보가 가장 적은 경로로 안내합니다") 음성으로 명확히 고지하여 사용자의 멘탈 모델(Mental Model)과 시스템 상태를 일치시킨다.
 - **Smart Fail-over Mechanism**: 사용자가 특정 수단(예: "버스만 타겠다")을 고집하여 유효한 경로가 없는 경우(Dead-end), 시스템이 이를 감지하고 자동으로 '최적 경로'로 전환하여 안내하는 'Soft Fallback' 알고리즘을 적용했다. 이는 사용자에게 "안내 불가"라는 부정적 경험 대신 "대안 제시"라는 긍정적 솔루션을 제공하여 서비스 신뢰도(Reliability)를 유지하는 핵심 전략이다.
 
 ## 3. Results & Discussion
