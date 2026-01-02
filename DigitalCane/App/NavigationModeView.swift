@@ -182,20 +182,27 @@ struct NavigationModeView: View {
     // 전체 경로 개요 안내 (Quick Win 1: 중복 로직 제거 - NavigationManager의 메시지 사용)
     private func announceOverview() {
         // NavigationManager가 생성한 기본 메시지 사용
-        var message = navigationManager.routeOverviewMessage
+        let baseMessage = navigationManager.routeOverviewMessage
+        
+        // 방어 코드: 메시지가 비어있으면 발화하지 않음
+        guard !baseMessage.isEmpty else {
+            print("⚠️ announceOverview: routeOverviewMessage is empty")
+            return
+        }
         
         // 날씨 정보 추가 (View에서만 접근 가능한 LocationManager 사용)
         if let location = locationManager.currentLocation {
             WeatherService.shared.fetchCurrentWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude) { weatherInfo, _ in
                 DispatchQueue.main.async {
+                    var finalMessage = baseMessage
                     if let weatherInfo = weatherInfo {
-                        message += " 참고로, \(weatherInfo)"
+                        finalMessage += " 참고로, \(weatherInfo)"
                     }
-                    speechManager.speak(message)
+                    speechManager.speak(finalMessage)
                 }
             }
         } else {
-            speechManager.speak(message)
+            speechManager.speak(baseMessage)
         }
     }
 }
