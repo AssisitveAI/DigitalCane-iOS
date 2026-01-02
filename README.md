@@ -64,8 +64,9 @@
   - `VoiceOver` 최적화: 행동 중심 레이아웃, 버튼 특성(Trait) 명시.
   - `Dynamic Type` 지원: 0.8x ~ 2.0x 글자 크기 조절 및 Scroll View 대응.
   - `Anchored Bottom Tab Bar`: iPhone SE 등 모든 기기에서 바닥에 완전히 고정된 고대비 커스텀 탭바 구현 (화면 100% 활용).
-  - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS).
+  - `AVSpeechSynthesizer`: 자연스러운 한국어 음성 출력 (TTS). **음성 속도 조절** 기능으로 사용자 선호에 맞게 조절 가능.
   - `Tab Refresh`: 탭 재선택 시 데이터 자동 갱신 및 음성 가이드 최적화.
+  - **경로 복사**: 경로 안내 화면 상단 요약 영역을 길게 누르면 경로 정보가 클립보드에 복사되어 카카오톡 등으로 공유 가능.
 - **Developer Tools**:
   - **Context7 MCP**: 실시간 버전별 문서 제공으로 최신 iOS/Swift API 정보 활용
 

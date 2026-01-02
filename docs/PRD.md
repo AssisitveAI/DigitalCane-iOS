@@ -80,6 +80,11 @@
 - **VoiceOver Optimization**: 
   - **Action-First Guidance**: 행동 지침 우선 안내.
   - **Direct Touch**: 마이크 버튼 등 특수 UI 제스처 우회 지원.
+- **개인화된 음성 안내 (Personalized TTS)**:
+  - **TTS 속도 조절**: 설정 탭에서 '느리게 / 보통 / 빠르게' 3단계로 음성 안내 속도 조절 가능.
+- **경로 공유 기능 (Route Sharing)**:
+  - **Quick Copy**: 경로 안내 화면 상단 요약 영역을 **길게 누르면** "현위치 → 강남역, 25분" 형태로 클립보드 복사.
+  - 복사 시 음성 및 시각적 피드백("복사 완료!") 제공.
 - **Multi-sensory Feedback**:
   - **Tab Switch Refresh**: '디지털케인' 탭 재터치 시 주변 장소 새로고침 통지(Notification) 발송 및 리로딩.
   - **Speech Interruption**: 탭 전환 시 중복 안내 방지를 위해 기존 음성 자동 중단.
