@@ -64,8 +64,11 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "ko_KR")) { [weak self] placemarks, error in
             guard let self = self, let placemark = placemarks?.first else { return }
             
-            // 1. 건물명/POI 명칭 추출 (현재 있는 장소 식별용)
-            let buildingName = placemark.name ?? placemark.areasOfInterest?.first
+            // 1. 상위 레벨 영역(대학 캠퍼스, 공원 등) 우선 추출
+            // areasOfInterest가 있으면 우선 사용 (예: "KAIST", "서울대학교", "올림픽공원")
+            // 없으면 placemark.name 사용 (건물명 또는 주소 일부)
+            let areaOfInterest = placemark.areasOfInterest?.first
+            let buildingName = areaOfInterest ?? placemark.name
             
             // 2. 주소 문자열 조합 (한국 주소 체계 고려)
             var addressParts: [String] = []
