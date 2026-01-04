@@ -90,6 +90,22 @@ struct HelpGuideView: View {
                 }
                 
                 // 하단 여백
+                // 하단 제작자 표시
+                VStack(spacing: 5) {
+                    Image(systemName: "hand.raised.fill") // 예시 아이콘, 필요시 변경
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 20, height: 20)
+                        .foregroundColor(.gray.opacity(0.5))
+                    
+                    Text("KAIST Assistive AI Lab")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.gray.opacity(0.5))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 20)
+                .accessibilityHidden(true) // 스크린리더가 굳이 읽을 필요 없는 장식적 요소라면 숨김, 혹은 읽게 할 수도 있음. 여기선 숨김 처리하거나 간단히 읽게 함.
+                
                 Spacer().frame(height: 50)
             }
             .padding(.horizontal)

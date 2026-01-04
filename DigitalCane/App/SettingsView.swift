@@ -120,11 +120,25 @@ struct SettingsView: View {
                     .accessibilityValue(emergencyContact.isEmpty ? "비어있음" : emergencyContact)
                 }
                 
-                Section(header: Text("앱 정보")) {
+                Section(footer: 
+                    VStack(spacing: 8) {
+                        Text("Made with ❤️ by")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                        Text("KAIST Assistive AI Lab")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 20)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("제작: 카이스트 보조 인공지능 연구실")
+                ) {
                     HStack {
                         Text("버전").dynamicFont(size: 16)
                         Spacer()
                         Text("1.0.0").dynamicFont(size: 16)
+                            .foregroundColor(.gray)
                     }
                 }
             }
