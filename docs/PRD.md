@@ -13,7 +13,7 @@
 ### 3.1. 지능형 경로 탐색 (Smart Route Planning)
 - **자연어 경로 탐색**: "출발지와 목적지를 말씀해 주세요. 출발지를 말하지 않으면 현위치를 중심으로 안내합니다."와 같이 안내하며, 사용자의 일상 어투를 그대로 이해합니다.
 - **정밀 의도 파악 (AI Intent Analysis)**:
-  - Google Gemini 2.0 Flash 기반. (초고속 응답, 33% 비용 절감, 우수한 JSON 신뢰도)
+  - Google Gemini 3 Flash Preview 기반. (최신 모델, 향상된 한국어 이해력, Thinking 지원, 우수한 JSON 신뢰도)
   - 출발지(Origin)와 목적지(Destination)를 구분하여 추출.
   - 불확실한 발화에 대해 임의로 장소를 추측하지 않도록 프롬프트 제어 강화 (No Guessing Policy).
 - **복합 경로 엔진 (Multi-modal Routing)**:
@@ -99,7 +99,7 @@
   - `CompassManager`: 디바이스 헤딩(Heading) 계산 및 타겟 방위각(Bearing) 매칭.
   - `SpeechManager`: SFSpeechRecognizer(STT) 및 AVSpeechSynthesizer(TTS) 통합 관리.
   - **External APIs**:
-  - **Google Gemini API**: 사용자 발화 의도(Intent) 파싱. (Gemini 2.0 Flash 모델)
+  - **Google Gemini API**: 사용자 발화 의도(Intent) 파싱. (Gemini 3 Flash Preview 모델)
   - **Google Maps Platform**:
     - `Routes API`: 경로 산출.
     - `Places API`: 주변 장소 탐색.

@@ -54,9 +54,8 @@
   - `CLGeocoder`: 위경도 좌표를 실시간 한글 주소(역지오코딩)로 변환
   - `CoreHaptics` / `UIImpactFeedbackGenerator`: 촉각 피드백 제공
 - **AI & Data**:
-  - **Google Gemini 2.0 Flash**: 사용자 발화 의도 추출 (목적지, 출발지 파싱)
+  - **Google Gemini 3 Flash Preview**: 사용자 발화 의도 추출 (목적지, 출발지 파싱, 교통수단 선호 분석)
   - **Google Maps Platform**:
-    - **Places API v1**: 주변 POI 검색
     - **Places API v1**: 주변 POI 검색
     - **Routes API v2**: 대중교통 및 복합 대중교통경로안내
   - **Overpass API (OSM)**: 건물 형상 및 POI 상세 데이터 수집 (Ray Casting 판별용)
@@ -84,7 +83,7 @@
    - `Secrets.plist` 파일을 프로젝트 루트에 생성합니다.
    - 아래 키를 추가합니다:
      - `GOOGLE_MAPS_API_KEY`: Google Cloud Console에서 발급
-      - `GEMINI_API_KEY`: Google AI Studio에서 발급 (Gemini 2.0 Flash용)
+     - `GEMINI_API_KEY`: Google AI Studio에서 발급 (Gemini 3 Flash Preview용)
 
 3. **빌드 및 실행**
    - Xcode에서 `DigitalCane.xcodeproj`를 엽니다.

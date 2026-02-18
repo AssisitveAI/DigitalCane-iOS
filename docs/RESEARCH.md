@@ -10,7 +10,7 @@
 
 ### 2.1. Hallucination-Free Intent Analysis with LLM
 가장 큰 기술적 도전 과제는 부정확한 음성 인식 결과와 LLM의 환각(Hallucination) 현상이었다. 잘못된 목적지 안내는 사용자에게 물리적 위험을 초래할 수 있다.
-- **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다. 또한, 단순한 장소 인식을 넘어 **'선호 교통수단(Preference Extraction)'**까지 파악하여 개인화된 경험을 제공하도록 모델을 고도화했다.
+- **Solution**: 우리는 'Strict Extraction' 프롬프트 엔지니어링을 적용했다. 사용자의 발화에서 목적지(Destination)와 출발지(Origin)가 명확히 특정되지 않으면, AI가 임의로 장소를 유추하는 것을 차단(Nullify)하고 "다시 말씀해주세요"라고 되묻는 안전 장치(Fail-safe)를 구현했다. 또한, 단순한 장소 인식을 넘어 **'선호 교통수단(Preference Extraction)'**까지 파악하여 개인화된 경험을 제공하도록 모델을 고도화했다. 현재 **Google Gemini 3 Flash Preview** 모델을 사용하며, Thinking 기능 지원으로 복잡한 한국어 발화에서의 의도 추론 정확도를 높였다.
 
 ### 2.2. Precision Heading & Haptic Feedback
 ### 2.2. Hybrid Location Context Awareness with Tiered Fallback
