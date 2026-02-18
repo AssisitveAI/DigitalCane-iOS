@@ -191,13 +191,18 @@ struct NavigationModeView: View {
         
         // 날씨 정보 추가 (View에서만 접근 가능한 LocationManager 사용)
         if let location = locationManager.currentLocation {
-            WeatherService.shared.fetchCurrentWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude) { weatherInfo, _ in
-                DispatchQueue.main.async {
-                    var finalMessage = baseMessage
-                    if let weatherInfo = weatherInfo {
-                        finalMessage += " 참고로, \(weatherInfo)"
+            Task {
+                do {
+                    let weatherInfo = try await WeatherService.shared.fetchCurrentWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                    await MainActor.run {
+                        let finalMessage = baseMessage + " 참고로, \(weatherInfo)"
+                        speechManager.speak(finalMessage)
                     }
-                    speechManager.speak(finalMessage)
+                } catch {
+                    print("⚠️ Weather fetch failed in NavigationModeView: \(error)")
+                    await MainActor.run {
+                        speechManager.speak(baseMessage)
+                    }
                 }
             }
         } else {
