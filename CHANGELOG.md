@@ -2,7 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026-02-18]
+
+### 🚀 AI 모델 업그레이드
+
+#### Gemini 3 Flash Preview 적용
+- **파일**: `Services/APIService.swift` - `analyzeIntent()`
+- **변경 내용**: 의도 분석 모델을 `gemini-2.0-flash` → **`gemini-3-flash-preview`** 로 업그레이드
+- **효과**: 향상된 한국어 대화 맥락 이해, 더 높은 JSON 출력 신뢰도, Thinking 기능 지원으로 복잡한 목적지 추론 정확도 향상
+- 입력 토큰 한도 1,048,576 (1M), Structured Output 및 Function Calling 지원
+
+### 🛠 코드 품질 개선 (Refactoring)
+
+#### Swift Concurrency 전면 적용
+- `APIService`의 모든 메서드를 `async/await` 패턴으로 전환 (completion handler 제거)
+- 중앙화된 `DigitalCaneError` enum 도입으로 통합 에러 처리
+
+#### OverpassService 분리
+- `LocationManager`에서 Overpass API 로직 및 Ray Casting 알고리즘을 `OverpassService.swift`로 추출
+- 단일 책임 원칙(SRP) 준수 및 모듈성 향상
+
+#### Smart Radius 버그 수정
+- `NearbyExploreView`의 스마트 반경 자동 조절 시 디바운싱 로직에 의해 재검색이 차단되던 버그 수정
+- `forceAutoTune` 파라미터로 디바운싱 우회, 반경 변경 시 즉시 재검색 실행
+
+#### 에러 처리 강화
+- `LocationManager`의 `try?` → `do-catch` 전환으로 에러 로깅 개선
+
+### 🌐 국제화 (Localization)
+- `NearbyExploreView`, `VoiceCommandModeView`의 사용자 대면 문자열을 `NSLocalizedString`으로 래핑
+
+---
+
 ## [2025-12-31]
+
 
 ### 🆕 새로운 기능 (New Features)
 

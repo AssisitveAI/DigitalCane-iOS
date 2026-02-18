@@ -29,7 +29,7 @@ struct NearbyExploreView: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 25) {
                 // 상단 헤더
-                Text("디지털케인")
+                Text(NSLocalizedString("디지털케인", comment: "App Title"))
                     .font(.largeTitle)
                     .bold()
                     .foregroundColor(.yellow)
@@ -42,7 +42,7 @@ struct NearbyExploreView: View {
                 
                 if isLoading {
                     VStack {
-                        ProgressView("장소 정보를 불러오고 있습니다")
+                        ProgressView(NSLocalizedString("장소 정보를 불러오고 있습니다", comment: "Loading message"))
                             .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
                             .foregroundColor(.yellow)
                     }
@@ -61,7 +61,7 @@ struct NearbyExploreView: View {
                             .frame(width: 100)
                             .foregroundColor(.gray)
                         
-                        Text(places.isEmpty ? "주변에 검색된 장소가 없습니다." : "준비됨: \(places.count)개의 장소")
+                        Text(places.isEmpty ? NSLocalizedString("주변에 검색된 장소가 없습니다.", comment: "No places found") : String(format: NSLocalizedString("준비됨: %d개의 장소", comment: "Places count"), places.count))
                             .font(.title3)
                             .foregroundColor(.white)
                             .bold()
@@ -84,13 +84,13 @@ struct NearbyExploreView: View {
                     }
                     .padding()
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("현재 감지된 장소: \(place.name). \(place.address)")
+                    .accessibilityLabel(String(format: NSLocalizedString("현재 감지된 장소: %@. %@", comment: "Accessibility label for current place"), place.name, place.address))
                 }
 
                 
                 // 버튼 삭제 및 자동 활성화 안내
                 if !places.isEmpty && !isLoading {
-                    Text("주변 탐색이 활성화되었습니다.")
+                    Text(NSLocalizedString("주변 탐색이 활성화되었습니다.", comment: "Exploration active"))
                         .font(.headline)
                         .foregroundColor(.yellow)
                         .multilineTextAlignment(.center)
@@ -228,9 +228,9 @@ struct NearbyExploreView: View {
         // 화면이 보이지 않으면 중단 (백그라운드 실행 방지)
         guard isVisible else { return }
         
-        // 디바운싱: 3초 이내 중복 호출 방지
+        // 디바운싱: 3초 이내 중복 호출 방지 (forceAutoTune이면 무시)
         let now = Date()
-        guard now.timeIntervalSince(lastFetchTime) >= minimumFetchInterval else {
+        guard forceAutoTune || now.timeIntervalSince(lastFetchTime) >= minimumFetchInterval else {
             print("⏱️ Debounced: 너무 빠른 재검색 방지")
             return
         }
@@ -240,18 +240,20 @@ struct NearbyExploreView: View {
         isLoading = true
         stopScanning() // 갱신 중엔 잠시 중단
         
-        APIService.shared.fetchNearbyPlaces(
-            latitude: location.coordinate.latitude,
-            longitude: location.coordinate.longitude,
-            radius: searchRadius
-        ) { fetchedPlaces, error in
-            DispatchQueue.main.async {
-                self.isLoading = false
+        Task {
+            do {
+                let fetchedPlaces = try await APIService.shared.fetchNearbyPlaces(
+                    latitude: location.coordinate.latitude,
+                    longitude: location.coordinate.longitude,
+                    radius: searchRadius
+                )
                 
-                // 비동기 작업 완료 시점에 화면이 떠났으면 중단
-                guard self.isVisible else { return }
-                
-                if let fetchedPlaces = fetchedPlaces {
+                await MainActor.run {
+                    self.isLoading = false
+                    
+                    // 비동기 작업 완료 시점에 화면이 떠났으면 중단
+                    guard self.isVisible else { return }
+                    
                     // 현재 있는 건물(장소) 제외 로직 추가
                     let currentBuilding = self.locationManager.currentBuildingName?.replacingOccurrences(of: " ", with: "") ?? ""
                     
@@ -301,7 +303,7 @@ struct NearbyExploreView: View {
                             // 즉시 재검색 (디바운싱 무시 필요할 수 있으나, 여기선 자연스럽게 호출)
                             // 딜레이를 주어 사용자에게 "조절 중임"을 인식시킬 수도 있음
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                self.fetchPlaces(forceAutoTune: false)
+                                self.fetchPlaces(forceAutoTune: true)
                             }
                             return // 현재 결과는 무시하고 재검색 결과를 기다림
                         } else {
@@ -334,9 +336,10 @@ struct NearbyExploreView: View {
                         }
                     }
                 }
-                
-                if let error = error {
-                    print("❌ Fetch Error: \(error)")
+            } catch {
+                print("❌ Fetch Error: \(error)")
+                await MainActor.run {
+                    self.isLoading = false
                     UIAccessibility.post(notification: .announcement, argument: "주변 장소를 찾을 수 없습니다")
                 }
             }

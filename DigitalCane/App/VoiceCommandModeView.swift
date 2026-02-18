@@ -29,10 +29,10 @@ struct VoiceCommandModeView: View {
                         .frame(width: 140, height: 140)
                         .foregroundColor(speechManager.isRecording ? .red : .yellow)
                 }
-                .accessibilityLabel(speechManager.isRecording ? "듣고 있습니다. 손을 떼면 검색합니다." : "길게 누르고 출발지와 목적지를 말하세요.")
+                .accessibilityLabel(speechManager.isRecording ? NSLocalizedString("듣고 있습니다. 손을 떼면 검색합니다.", comment: "Listening instructions") : NSLocalizedString("길게 누르고 출발지와 목적지를 말하세요.", comment: "Hold to speak instructions"))
                 
                 // 안내 텍스트
-                Text(speechManager.isRecording ? "듣고 있습니다..." : "출발지와 목적지를 말씀해 주세요. 출발지를 말하지 않으면 현위치를 중심으로 안내합니다.")
+                Text(speechManager.isRecording ? NSLocalizedString("듣고 있습니다...", comment: "Listening...") : NSLocalizedString("출발지와 목적지를 말씀해 주세요. 출발지를 말하지 않으면 현위치를 중심으로 안내합니다.", comment: "Prompt for destination"))
                     .dynamicFont(size: 24, weight: .bold)
                     .lineLimit(nil)
                     .minimumScaleFactor(0.5)
@@ -47,7 +47,7 @@ struct VoiceCommandModeView: View {
                         VStack(spacing: 12) {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
-                            Text("경로 탐색 중...")
+                            Text(NSLocalizedString("경로 탐색 중...", comment: "Searching route..."))
                                 .dynamicFont(size: 18)
                                 .foregroundColor(.yellow)
                         }
@@ -113,7 +113,7 @@ struct VoiceCommandModeView: View {
                     onCommit(speechManager.transcript)
                 }
             } else {
-                speechManager.speak("목소리를 인식하지 못했습니다. 다시 말씀해 주세요.")
+                speechManager.speak(NSLocalizedString("목소리를 인식하지 못했습니다. 다시 말씀해 주세요.", comment: "Recognition failed"))
             }
         }
     }

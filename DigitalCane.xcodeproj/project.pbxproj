@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,6 +11,7 @@
 		23EF0E0CCC1702177C4006C4 /* HelpGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C28AD887BE16B2A954A498 /* HelpGuideView.swift */; };
 		257ED5E4BD2110B1ED6DFAF8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA843A9655965F4BF91E652 /* SettingsView.swift */; };
 		3C6580FEBA03CC64CD2B26F3 /* SpeechManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 828D515E329544C82D136D09 /* SpeechManager.swift */; };
+		4DB8A9D1720175DA42E5A532 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6B2C1FED9618D6D340310E94 /* PrivacyInfo.xcprivacy */; };
 		57C8F05DD1E243FDE8D201C6 /* CompassManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C99A49F4AADC37E4CEFB5BC /* CompassManager.swift */; };
 		5C55FE9625317AA041AC1596 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B7F89815A28F304353E1FF6 /* ContentView.swift */; };
 		605F73B15E1CCEB6C6F5ABD2 /* DigitalCaneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */; };
@@ -20,6 +21,8 @@
 		68CCCD23EC7E231EA1D039C0 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = 99BB56EF7641EE3020560C51 /* Secrets.plist */; };
 		7BEF4127FE4020F63C4D61FF /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FD71D53E8ACEB6D94A8BC74 /* APIService.swift */; };
 		7D2732E7A4A5E3D14C13B4F8 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8D0BB39DAD7385B25FC622 /* LocationManager.swift */; };
+		8006F6259FED4C85AB7CD39A /* DigitalCaneError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FF16805CADEF927B893B48 /* DigitalCaneError.swift */; };
+		960A2C62C557D88982B89AF8 /* OverpassService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CFF0188744B03E336EDC1D /* OverpassService.swift */; };
 		A8A6A814FA1CE3F740597A89 /* NavigationModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1AF6F75E91B4C2936F932 /* NavigationModeView.swift */; };
 		AC5FB011CB3978D42D50793D /* VoiceCommandModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E3062BC719F91B30E10A2A /* VoiceCommandModeView.swift */; };
 		D7DEEB02A208B399B62F5227 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E20106E32C0053AE6FEFA52 /* SplashView.swift */; };
@@ -29,6 +32,7 @@
 
 /* Begin PBXFileReference section */
 		02B48C03400C1B8C79BB64BB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		04CFF0188744B03E336EDC1D /* OverpassService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverpassService.swift; sourceTree = "<group>"; };
 		0763EC516D79F635D90895F1 /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
 		09EE4C4F0402B4FFA5597D3D /* NearbyExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyExploreView.swift; sourceTree = "<group>"; };
 		0A8D0BB39DAD7385B25FC622 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
@@ -38,14 +42,17 @@
 		3B7F89815A28F304353E1FF6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		403D6DEF2EECF0145E636432 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		40E3062BC719F91B30E10A2A /* VoiceCommandModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandModeView.swift; sourceTree = "<group>"; };
+		572B75C8D229A1C70F0235A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6B2C1FED9618D6D340310E94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		828D515E329544C82D136D09 /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
 		91C28AD887BE16B2A954A498 /* HelpGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpGuideView.swift; sourceTree = "<group>"; };
 		99BB56EF7641EE3020560C51 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
 		9E20106E32C0053AE6FEFA52 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		ABF873C1938A7D1354C3DC3E /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
+		C4FF16805CADEF927B893B48 /* DigitalCaneError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneError.swift; sourceTree = "<group>"; };
 		C7A1AF6F75E91B4C2936F932 /* NavigationModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationModeView.swift; sourceTree = "<group>"; };
 		DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneApp.swift; sourceTree = "<group>"; };
-		DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "디지털케인.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DigitalCane.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -55,8 +62,10 @@
 			children = (
 				0FD71D53E8ACEB6D94A8BC74 /* APIService.swift */,
 				2C99A49F4AADC37E4CEFB5BC /* CompassManager.swift */,
+				C4FF16805CADEF927B893B48 /* DigitalCaneError.swift */,
 				0A8D0BB39DAD7385B25FC622 /* LocationManager.swift */,
 				FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */,
+				04CFF0188744B03E336EDC1D /* OverpassService.swift */,
 				828D515E329544C82D136D09 /* SpeechManager.swift */,
 				ABF873C1938A7D1354C3DC3E /* WeatherService.swift */,
 			);
@@ -67,7 +76,7 @@
 		560AB5EEF78462F0E58D359A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */,
+				DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -104,6 +113,8 @@
 			isa = PBXGroup;
 			children = (
 				02B48C03400C1B8C79BB64BB /* Assets.xcassets */,
+				572B75C8D229A1C70F0235A7 /* Info.plist */,
+				6B2C1FED9618D6D340310E94 /* PrivacyInfo.xcprivacy */,
 				99BB56EF7641EE3020560C51 /* Secrets.plist */,
 			);
 			name = Resources;
@@ -128,7 +139,7 @@
 			packageProductDependencies = (
 			);
 			productName = DigitalCane;
-			productReference = DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */;
+			productReference = DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -150,6 +161,7 @@
 			);
 			mainGroup = 639BA214060B4CCA3B822193;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -164,6 +176,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D9B37B7744C5FB09AED7645B /* Assets.xcassets in Resources */,
+				4DB8A9D1720175DA42E5A532 /* PrivacyInfo.xcprivacy in Resources */,
 				68CCCD23EC7E231EA1D039C0 /* Secrets.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -179,12 +192,14 @@
 				57C8F05DD1E243FDE8D201C6 /* CompassManager.swift in Sources */,
 				5C55FE9625317AA041AC1596 /* ContentView.swift in Sources */,
 				605F73B15E1CCEB6C6F5ABD2 /* DigitalCaneApp.swift in Sources */,
+				8006F6259FED4C85AB7CD39A /* DigitalCaneError.swift in Sources */,
 				23EF0E0CCC1702177C4006C4 /* HelpGuideView.swift in Sources */,
 				666D59C4CA1D2A907FD9FAA8 /* HelpView.swift in Sources */,
 				7D2732E7A4A5E3D14C13B4F8 /* LocationManager.swift in Sources */,
 				64CF903F7CFE7AE9BA1D19E5 /* NavigationManager.swift in Sources */,
 				A8A6A814FA1CE3F740597A89 /* NavigationModeView.swift in Sources */,
 				00F424A516EC7062CEA2E2F0 /* NearbyExploreView.swift in Sources */,
+				960A2C62C557D88982B89AF8 /* OverpassService.swift in Sources */,
 				257ED5E4BD2110B1ED6DFAF8 /* SettingsView.swift in Sources */,
 				3C6580FEBA03CC64CD2B26F3 /* SpeechManager.swift in Sources */,
 				D7DEEB02A208B399B62F5227 /* SplashView.swift in Sources */,
@@ -259,8 +274,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 96DKJANZN4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DigitalCane/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";
 				INFOPLIST_KEY_CFBundleName = "디지털케인";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치 기반 대중교통경로안내를 제공하기 위해 위치 정보가 필요합니다.";
@@ -283,8 +298,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 96DKJANZN4;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DigitalCane/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";
 				INFOPLIST_KEY_CFBundleName = "디지털케인";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치 기반 대중교통경로안내를 제공하기 위해 위치 정보가 필요합니다.";

@@ -113,69 +113,53 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private func checkCurrentBuilding(at location: CLLocation) {
         lastBuildingCheckLocation = location
         
-        APIService.shared.fetchNearbyBuildings(at: location.coordinate) { [weak self] buildings in
-            guard let self = self else { return }
-            
-            // Ray Casting Algorithm으로 내 위치가 포함된 건물/영역 찾기
-            // 우선순위: 구체적인 건물(.building) > 대규모 구역(.area)
-            let candidates = buildings.filter { $0.points.contains(location.coordinate) }
-            
-            // 정렬 로직: building 우선
-            let matchedObject = candidates.sorted { (a, b) -> Bool in
-                // 작은 범위가 우선 (building < area)
-                let aScore = (a.type == .building) ? 0 : 2
-                let bScore = (b.type == .building) ? 0 : 2
-                return aScore < bScore
-            }.first
-            
-            if let matchedObject = matchedObject {
-                print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
+        Task {
+            do {
+                let buildings = try await APIService.shared.fetchNearbyBuildings(at: location.coordinate)
                 
-                DispatchQueue.main.async {
-                    // Overpass 이름이 불충분하면 Google Places로 보완
-                    let overpassName = matchedObject.name
+                // Delegate logic to OverpassService
+                if let matchedObject = OverpassService.shared.findBuilding(at: location.coordinate, from: buildings) {
+                    print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
                     
-                    if overpassName == "건물" || overpassName.isEmpty {
-                        // 이름이 없으면 Google Places 호출
-                        print("🟡 [Hybrid] Overpass name missing, calling Google Places...")
-                        APIService.shared.fetchNearbyPlaceName(at: location.coordinate) { googleName in
-                            DispatchQueue.main.async {
-                                if let googleName = googleName {
-                                    self.currentBuildingName = googleName
-                                    print("✅ [Hybrid] Name updated by Google: \(googleName)")
-                                } else {
-                                    // Google 실패 시, Overpass "건물"은 사용하지 않고 역지오코딩(Fallback) 유지
-                                    // 단, 역지오코딩 값도 없으면 어쩔 수 없이 "건물" 사용? 아니면 표시 안 함?
-                                    // 표시 안 하는 게 나음 ("건물 내부"보다는 주소가 나음)
-                                    if self.currentBuildingName == nil {
-                                        // 역지오코딩조차 없으면 "건물" 사용
-                                        self.currentBuildingName = overpassName
-                                    } else {
-                                        print("❌ [Hybrid] Google failed & Overpass generic. Keeping Fallback: \(self.currentBuildingName ?? "nil")")
+                    await MainActor.run {
+                        let overpassName = matchedObject.name
+                        
+                        // Check if Google Place Name is needed
+                        if overpassName == "건물" || overpassName.isEmpty {
+                            print("🟡 [Hybrid] Overpass name missing, calling Google Places...")
+                            
+                            Task {
+                                do {
+                                    let googleName = try await APIService.shared.fetchNearbyPlaceName(at: location.coordinate)
+                                    await MainActor.run {
+                                        self.currentBuildingName = googleName
+                                        print("✅ [Hybrid] Name updated by Google: \(googleName)")
+                                    }
+                                } catch {
+                                    print("⚠️ [Hybrid] Google Places Fallback Failed: \(error)")
+                                    await MainActor.run {
+                                        if self.currentBuildingName == nil {
+                                            self.currentBuildingName = overpassName
+                                        } else {
+                                            print("❌ [Hybrid] Google failed & Overpass generic. Keeping Fallback: \(self.currentBuildingName ?? "nil")")
+                                        }
                                     }
                                 }
+                                await MainActor.run {
+                                    self.isInsideBuilding = true
+                                }
                             }
+                        } else {
+                            self.currentBuildingName = overpassName
+                            self.isInsideBuilding = true
                         }
-                    } else {
-                        // Overpass 이름이 충분하면 그대로 사용
-                        self.currentBuildingName = overpassName
                     }
-                    
-                    // 타입에 따라 컨텍스트 설정 (건물은 "내부", POI는 "바로 앞/안")
-                    if matchedObject.type == .building {
-                        self.isInsideBuilding = true
-                    } else if matchedObject.type == .area {
-                        // 대규모 구역(캠퍼스 등)도 "내부"로 간주
-                        self.isInsideBuilding = true
-                    } else {
-                        self.isInsideBuilding = true 
-                    }
+                } else {
+                    print("🏢 [Overpass] No building/area matched, keeping fallback data")
+                    // Do not reset currentBuildingName or isInsideBuilding (keep fallback)
                 }
-            } else {
-                // Ray Casting 실패 -> 건물 밖이거나 데이터 없음
-                // currentBuildingName은 리셋하지 않음 (역지오코딩의 areasOfInterest 유지)
-                // isInsideBuilding도 유지 (역지오코딩에서 areasOfInterest가 있으면 true로 설정됨)
-                print("🏢 [Overpass] No building/area matched, keeping fallback data")
+            } catch {
+                print("Error fetching nearby buildings: \(error)")
             }
         }
     }
@@ -185,29 +169,3 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-// MARK: - Ray Casting Algorithm
-extension Array where Element == CLLocationCoordinate2D {
-    /// 해당 다각형(Polygon) 좌표 배열 내부에 점이 포함되는지 판별합니다.
-    /// - Parameter coordinate: 판별할 점의 좌표
-    /// - Returns: 포함 여부 (Boolean)
-    func contains(_ coordinate: CLLocationCoordinate2D) -> Bool {
-        var inside = false
-        var j = self.count - 1
-        
-        for i in 0..<self.count {
-            let p1 = self[i]
-            let p2 = self[j]
-            
-            // Ray Casting: 수평선과 다각형 변의 교차점 개수 홀짝 판별
-            if (p1.longitude > coordinate.longitude) != (p2.longitude > coordinate.longitude) {
-                let intersectLat = (p2.latitude - p1.latitude) * (coordinate.longitude - p1.longitude) / (p2.longitude - p1.longitude) + p1.latitude
-                if coordinate.latitude < intersectLat {
-                    inside = !inside
-                }
-            }
-            j = i
-        }
-        
-        return inside
-    }
-}

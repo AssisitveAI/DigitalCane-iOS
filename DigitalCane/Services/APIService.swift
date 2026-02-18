@@ -28,17 +28,24 @@ class APIService {
         return value
     }
     
-    // MARK: - 1. Intent Analysis using Gemini 2.0 Flash
-    // 33% 저렴, 더 빠른 응답, 우수한 JSON 신뢰도
-    func analyzeIntent(from text: String, completion: @escaping (LocationIntent?) -> Void) {
+    // MARK: - Error Handling
+    enum DigitalCaneError: Error {
+        case networkError(String)
+        case parsingError(String)
+        case missingAPIKey
+        case apiError(String)
+        case locationError(String)
+    }
+
+    // MARK: - 1. Intent Analysis using Gemini 3 Flash Preview
+    // 최신 모델, 최고 수준의 한국어 이해력 및 JSON 신뢰도
+    func analyzeIntent(from text: String) async throws -> LocationIntent? {
         guard !geminiApiKey.isEmpty else {
-            print("Gemini API Key is missing")
-            completion(nil)
-            return
+            throw DigitalCaneError.missingAPIKey
         }
         
-        // Gemini 2.0 Flash API 엔드포인트
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(geminiApiKey)")!
+        // Gemini 3 Flash Preview API 엔드포인트
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=\(geminiApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -95,60 +102,53 @@ class APIService {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         } catch {
-            print("Error creating JSON body: \(error)")
-            completion(nil)
-            return
+             throw DigitalCaneError.parsingError("JSON Body Creation Failed: \(error.localizedDescription)")
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                print("Gemini Network Error: \(error?.localizedDescription ?? "Unknown error")")
-                completion(nil)
-                return
-            }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Gemini API Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        }
             
-            do {
-                let decodedResponse = try JSONDecoder().decode(GeminiResponse.self, from: data)
-                if let content = decodedResponse.candidates?.first?.content?.parts?.first?.text,
-                   let jsonData = content.data(using: .utf8) {
-                    print("🤖 Gemini Raw JSON: \(content)")
-                    
-                    // 단일 객체로 파싱 시도
-                    if let intent = try? JSONDecoder().decode(LocationIntent.self, from: jsonData) {
-                        completion(intent)
-                    }
-                    // 배열로 파싱 시도 (대화 히스토리 사용 시)
-                    else if let intentArray = try? JSONDecoder().decode([LocationIntent].self, from: jsonData),
-                            let lastIntent = intentArray.last {
-                        // 가장 마지막 의도(최신)를 사용
-                        print("📋 Parsed array of \(intentArray.count) intents, using last one")
-                        completion(lastIntent)
-                    } else {
-                        print("Failed to parse Gemini Content")
-                        completion(nil)
-                    }
-                } else {
-                    print("No content in Gemini response")
-                    if let str = String(data: data, encoding: .utf8) {
-                        print("Raw Response: \(str)")
-                    }
-                    completion(nil)
+        do {
+            let decodedResponse = try JSONDecoder().decode(GeminiResponse.self, from: data)
+            if let content = decodedResponse.candidates?.first?.content?.parts?.first?.text,
+               let jsonData = content.data(using: .utf8) {
+                print("🤖 Gemini Raw JSON: \(content)")
+                
+                // 단일 객체로 파싱 시도
+                if let intent = try? JSONDecoder().decode(LocationIntent.self, from: jsonData) {
+                    return intent
                 }
-            } catch {
-                print("Gemini Decoding Error: \(error)")
-                completion(nil)
+                // 배열로 파싱 시도 (대화 히스토리 사용 시)
+                else if let intentArray = try? JSONDecoder().decode([LocationIntent].self, from: jsonData),
+                        let lastIntent = intentArray.last {
+                    // 가장 마지막 의도(최신)를 사용
+                    print("📋 Parsed array of \(intentArray.count) intents, using last one")
+                    return lastIntent
+                } else {
+                    print("Failed to parse Gemini Content")
+                    return nil
+                }
+            } else {
+                print("No content in Gemini response")
+                if let str = String(data: data, encoding: .utf8) {
+                    print("Raw Response: \(str)")
+                }
+                return nil
             }
-        }.resume()
+        } catch {
+            print("Gemini Decoding Error: \(error)")
+            throw DigitalCaneError.parsingError(error.localizedDescription)
+        }
     }
-    
+
     // MARK: - 2. MapKit (Apple Maps - 카카오 데이터 기반, 한국 최적화)
     
     /// 장소 검색 (MapKit 기반)
-    func searchPlacesMapKit(query: String, completion: @escaping ([Place]?) -> Void) {
-        guard !query.isEmpty else {
-            completion(nil)
-            return
-        }
+    func searchPlacesMapKit(query: String) async throws -> [Place] {
+        guard !query.isEmpty else { return [] }
         
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
@@ -160,86 +160,58 @@ class APIService {
         )
         
         let search = MKLocalSearch(request: request)
-        search.start { response, error in
-            guard let response = response, error == nil else {
-                print("MapKit Search Error: \(error?.localizedDescription ?? "Unknown")")
-                completion(nil)
-                return
-            }
-            
-            let places = response.mapItems.prefix(5).map { item -> Place in
-                Place(
-                    name: item.name ?? query,
-                    address: item.placemark.title ?? "",
-                    types: [], // MapKit doesn't provide detailed types
-                    coordinate: item.placemark.coordinate
-                )
-            }
-            
-            completion(Array(places))
+        let response = try await search.start()
+        
+        let places = response.mapItems.prefix(5).map { item -> Place in
+            Place(
+                name: item.name ?? query,
+                address: item.placemark.title ?? "",
+                types: [], // MapKit doesn't provide detailed types
+                coordinate: item.placemark.coordinate
+            )
         }
+        
+        return Array(places)
     }
     
     /// 대중교통 경로 검색 (MapKit 기반)
-    func fetchRouteMapKit(from originName: String, to destName: String, currentLocation: CLLocation? = nil, completion: @escaping (RouteData?) -> Void) {
+    func fetchRouteMapKit(from originName: String, to destName: String, currentLocation: CLLocation? = nil) async throws -> RouteData? {
+        // 1. 목적지 MKMapItem 생성
+        let destPlaces = try await searchPlacesMapKit(query: destName)
+        guard let destPlace = destPlaces.first else { return nil }
         
-        // 1. 출발지 MKMapItem 생성
-        let getOriginItem: (@escaping (MKMapItem?) -> Void) -> Void = { callback in
-            if originName == "Current Location", let current = currentLocation {
-                let placemark = MKPlacemark(coordinate: current.coordinate)
-                callback(MKMapItem(placemark: placemark))
-            } else {
-                // 출발지 검색
-                self.searchPlacesMapKit(query: originName) { places in
-                    guard let place = places?.first else {
-                        callback(nil)
-                        return
-                    }
-                    let placemark = MKPlacemark(coordinate: place.coordinate)
-                    callback(MKMapItem(placemark: placemark))
-                }
-            }
+        let destPlacemark = MKPlacemark(coordinate: destPlace.coordinate)
+        let destItem = MKMapItem(placemark: destPlacemark)
+        
+        // 2. 출발지 MKMapItem 생성
+        let originItem: MKMapItem
+        if originName == "Current Location", let current = currentLocation {
+            let placemark = MKPlacemark(coordinate: current.coordinate)
+            originItem = MKMapItem(placemark: placemark)
+        } else {
+            let originPlaces = try await searchPlacesMapKit(query: originName)
+            guard let originPlace = originPlaces.first else { return nil }
+            let placemark = MKPlacemark(coordinate: originPlace.coordinate)
+            originItem = MKMapItem(placemark: placemark)
         }
         
-        // 2. 목적지 MKMapItem 생성
-        searchPlacesMapKit(query: destName) { places in
-            guard let destPlace = places?.first else {
-                completion(nil)
-                return
-            }
-            
-            let destPlacemark = MKPlacemark(coordinate: destPlace.coordinate)
-            let destItem = MKMapItem(placemark: destPlacemark)
-            
-            getOriginItem { originItem in
-                guard let originItem = originItem else {
-                    completion(nil)
-                    return
-                }
-                
-                // 3. 경로 요청
-                let request = MKDirections.Request()
-                request.source = originItem
-                request.destination = destItem
-                request.transportType = .transit // 대중교통
-                
-                let directions = MKDirections(request: request)
-                directions.calculate { response, error in
-                    guard let route = response?.routes.first, error == nil else {
-                        print("MapKit Directions Error: \(error?.localizedDescription ?? "Unknown")")
-                        completion(nil)
-                        return
-                    }
-                    
-                    // 4. MKRoute → RouteData 변환
-                    let steps = route.steps.compactMap { self.convertStepMapKit($0) }
-                    let totalDuration = "\(Int(route.expectedTravelTime))s"
-                    let totalDistance = "\(Int(route.distance))m"
-                    
-                    completion(RouteData(steps: steps, totalDuration: totalDuration, totalDistance: totalDistance))
-                }
-            }
-        }
+        // 3. 경로 요청
+        let request = MKDirections.Request()
+        request.source = originItem
+        request.destination = destItem
+        request.transportType = .transit // 대중교통
+        
+        let directions = MKDirections(request: request)
+        let response = try await directions.calculate()
+        
+        guard let route = response.routes.first else { return nil }
+        
+        // 4. MKRoute → RouteData 변환
+        let steps = route.steps.compactMap { self.convertStepMapKit($0) }
+        let totalDuration = "\(Int(route.expectedTravelTime))s"
+        let totalDistance = "\(Int(route.distance))m"
+        
+        return RouteData(steps: steps, totalDuration: totalDuration, totalDistance: totalDistance)
     }
     
     // MARK: - 3. Google Routes API (백업용 -> 메인 대중교통 엔진)
@@ -247,12 +219,9 @@ class APIService {
                     to destination: String, 
                     currentLocation: CLLocation? = nil, 
                     preferredModes: [String]? = nil,
-                    routingPreference: String? = nil, // 경로 선호 옵션 추가
-                    completion: @escaping (RouteData?, Bool) -> Void) { // Bool: isFallbackApplied (선호 수단 실패로 전체 검색했는지)
+                    routingPreference: String? = nil) async throws -> (RouteData?, Bool) { // Bool: isFallbackApplied
         guard !googleApiKey.isEmpty else {
-            print("Google API Key is missing")
-            completion(nil, false)
-            return
+            throw DigitalCaneError.missingAPIKey
         }
         
         let url = URL(string: "https://routes.googleapis.com/directions/v2:computeRoutes")!
@@ -261,10 +230,7 @@ class APIService {
         request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         // API 키 제한(iOS 앱 제한)을 통과하기 위해 Bundle ID 헤더 추가
         request.addValue(Bundle.main.bundleIdentifier ?? "kr.ac.kaist.assistiveailab.DigitalCane", forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        // FieldMask 최적화: 네트워크 효율을 위해 꼭 필요한 필드만 요청
-        // routes.legs.steps: 경로 단계 (이동, 환승 등)
-        // routes.legs.distanceMeters, routes.legs.duration: 전체 거리 및 시간
-        // routes.legs.localizedValues: 현지화된 시간/거리 텍스트 ("15분", "500m")
+        
         let fields = [
             "routes.legs.steps.navigationInstruction",
             "routes.legs.steps.transitDetails",
@@ -278,7 +244,7 @@ class APIService {
         request.addValue(fields, forHTTPHeaderField: "X-Goog-FieldMask")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Origin 설정: 좌표가 있으면 좌표 우선, 없으면 주소(텍스트) 사용
+        // Origin 설정
         var originBody: [String: Any] = ["address": origin]
         
         if let currentLoc = currentLocation, origin == "Current Location" {
@@ -291,9 +257,7 @@ class APIService {
                 ]
             ]
         } else if origin == "Current Location" {
-             print("Current Location is required but nil")
-             completion(nil, false)
-             return
+             throw DigitalCaneError.locationError("Current Location required but nil")
         }
         
         // Google Routes API v2 (Latest Standard 2025)
@@ -313,15 +277,12 @@ class APIService {
             transitPreferences["routingPreference"] = preference
             print("🔹 Applying Routing Preference: \(preference)")
         } else if UserDefaults.standard.bool(forKey: "preferLessWalking") {
-            // 기본 설정(User Default) 반영: 도보 최소화
             transitPreferences["routingPreference"] = "LESS_WALKING"
         } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
-            // 기본 설정(User Default) 반영: 환승 최소화
             transitPreferences["routingPreference"] = "FEWER_TRANSFERS"
         }
         
-        // 3. 사용자 선호 교통수단 (Strict Filtering)
-        // 사용자가 특정 수단을 선호하면 해당 수단만 허용(Allowed)하여 요청
+        // 3. 사용자 선호 교통수단
         if let modes = preferredModes, !modes.isEmpty {
             transitPreferences["allowedTravelModes"] = modes
             print("🔹 Applying Travel Preference: \(modes)")
@@ -331,109 +292,109 @@ class APIService {
             requestBody["transitPreferences"] = transitPreferences
         }
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            print("Error creating Google Routes body: \(error)")
-            completion(nil, false)
-            return
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Google Routes API Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                print("Google Routes Network Error: \(error?.localizedDescription ?? "Unknown error")")
-                completion(nil, false)
-                return
+        do {
+            if let str = String(data: data, encoding: .utf8) { 
+                print("📦 Google Routes API Raw Response: \(str)") 
             }
             
-            do {
-                // 디버깅용 로그 활성화
-                if let str = String(data: data, encoding: .utf8) { 
-                    print("📦 Google Routes API Raw Response: \(str)") 
-                }
+            let decodedResponse = try JSONDecoder().decode(GRouteResponse.self, from: data)
+            if let route = decodedResponse.routes?.first,
+               let leg = route.legs?.first {
                 
-                let decodedResponse = try JSONDecoder().decode(GRouteResponse.self, from: data)
-                if let route = decodedResponse.routes?.first,
-                   let leg = route.legs?.first {
-                    
-                    // GRouteStep -> RouteStep 변환 (원천 데이터 수집)
-                    let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
-                    
-                    // 도보 단계를 항목에서 제거하고 대중교통 단계에 자연스럽게 녹임
-                    var rawTransitSteps: [RouteStep] = []
-                    var walkInstructionsBuffer: [String] = []
-                    var lastTransitVehicleType: String? = nil
-                    
-                    for step in allSteps {
-                        if step.type == .walk {
-                            // 단순 이동은 생략하고, 핵심 정보(역 이름, 입구/출구, 방향)를 버퍼에 보관
-                            let instr = step.instruction
-                            if !instr.isEmpty {
-                                walkInstructionsBuffer.append(instr)
-                            }
-                        } else {
-                            // 대중교통 단계
-                            var refinedInstruction = step.instruction
-                            let currentVehicleType = step.vehicleType
+                // GRouteStep -> RouteStep 변환
+                let allSteps = (leg.steps ?? []).compactMap { self.convertStep($0) }
+                
+                // 도보 단계를 항목에서 제거하고 대중교통 단계에 자연스럽게 녹임
+                var rawTransitSteps: [RouteStep] = []
+                var walkInstructionsBuffer: [String] = []
+                var lastTransitVehicleType: String? = nil
+                
+                for step in allSteps {
+                    if step.type == .walk {
+                        let instr = step.instruction
+                        if !instr.isEmpty {
+                            walkInstructionsBuffer.append(instr)
+                        }
+                    } else {
+                        // 대중교통 단계
+                        var refinedInstruction = step.instruction
+                        let currentVehicleType = step.vehicleType
+                        
+                        // 버퍼에 쌓인 도보 정보 통합
+                        if !walkInstructionsBuffer.isEmpty {
+                            let filteredWalkInfo = walkInstructionsBuffer.map { info -> String in
+                                if info.contains("출구") || info.contains("입구") {
+                                    return info.replacingOccurrences(of: "[0-9]+(-[0-9]+)?번\\s*(입구|출구)", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+                                }
+                                return info
+                            }.filter { !$0.isEmpty }
                             
-                            // 버퍼에 쌓인 도보 정보(이동 경로) 통합
-                            if !walkInstructionsBuffer.isEmpty {
-                                // ⚠️ 정책 반영: 출발/환승 시 '입구/출구' 정보는 상대적이므로 생략 (역 이름 정보만 추출하여 사용)
-                                // 입구/출구 숫자가 포함된 정보를 거르고 역 이름 위주로 정리
-                                let filteredWalkInfo = walkInstructionsBuffer.map { info -> String in
-                                    if info.contains("출구") || info.contains("입구") {
-                                        // "서울역 5번 출구" -> "서울역" 처럼 역 이름만 남기거나, 
-                                        // 입구 정보만 있는 경우 빈 값으로 만들어 무시
-                                        return info.replacingOccurrences(of: "[0-9]+(-[0-9]+)?번\\s*(입구|출구)", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
-                                    }
-                                    return info
-                                }.filter { !$0.isEmpty }
+                            walkInstructionsBuffer.removeAll()
+                            
+                            if !filteredWalkInfo.isEmpty {
+                                let walkPrefix = filteredWalkInfo.joined(separator: " 및 ")
                                 
-                                walkInstructionsBuffer.removeAll()
-                                
-                                if !filteredWalkInfo.isEmpty {
-                                    let walkPrefix = filteredWalkInfo.joined(separator: " 및 ")
+                                if let stationRange = refinedInstruction.range(of: "에서 ") {
+                                    let transitCore = String(refinedInstruction[stationRange.upperBound...])
+                                    let stationName = String(refinedInstruction[..<stationRange.lowerBound])
                                     
-                                    if let stationRange = refinedInstruction.range(of: "에서 ") {
-                                        let transitCore = String(refinedInstruction[stationRange.upperBound...])
-                                        let stationName = String(refinedInstruction[..<stationRange.lowerBound])
-                                        
-                                        if walkPrefix.contains(stationName) {
-                                            refinedInstruction = "\(walkPrefix)에서 \(transitCore)"
-                                        } else {
-                                            refinedInstruction = "\(stationName) \(walkPrefix)에서 \(transitCore)"
-                                        }
+                                    if walkPrefix.contains(stationName) {
+                                        refinedInstruction = "\(walkPrefix)에서 \(transitCore)"
                                     } else {
-                                        refinedInstruction = "\(walkPrefix)에서 \(refinedInstruction)"
+                                        refinedInstruction = "\(stationName) \(walkPrefix)에서 \(transitCore)"
                                     }
+                                } else {
+                                    refinedInstruction = "\(walkPrefix)에서 \(refinedInstruction)"
                                 }
                             }
-                            
-                            lastTransitVehicleType = currentVehicleType
-                            rawTransitSteps.append(RouteStep(
-                                type: step.type,
-                                instruction: refinedInstruction,
-                                detail: step.detail,
-                                action: step.action,
-                                stopCount: step.stopCount,
-                                duration: step.duration,
-                                distance: step.distance,
-                                vehicleType: step.vehicleType
-                            ))
                         }
+                        
+                        lastTransitVehicleType = currentVehicleType
+                        rawTransitSteps.append(RouteStep(
+                            type: step.type,
+                            instruction: refinedInstruction,
+                            detail: step.detail,
+                            action: step.action,
+                            stopCount: step.stopCount,
+                            duration: step.duration,
+                            distance: step.distance,
+                            vehicleType: step.vehicleType
+                        ))
                     }
+                }
+                
+                // 마지막에 남은 도보 정보 처리
+                if !walkInstructionsBuffer.isEmpty && !rawTransitSteps.isEmpty {
+                    let lastIdx = rawTransitSteps.count - 1
+                    let lastStep = rawTransitSteps[lastIdx]
                     
-                    // 마지막에 남은 도보 정보(도착지 안내 - 출구 정보 필수) 처리
-                    if !walkInstructionsBuffer.isEmpty && !rawTransitSteps.isEmpty {
-                        let lastIdx = rawTransitSteps.count - 1
-                        let lastStep = rawTransitSteps[lastIdx]
-                        
-                        // 도착지에서는 '출구' 정보가 매우 중요하므로 그대로 유지
-                        let walkSuffix = walkInstructionsBuffer.joined(separator: " 및 ")
-                        
-                        let connector = walkSuffix.contains("출구") ? "를 통해 나가서" : "로 이동하여"
-                        let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 \(walkSuffix)\(connector) 도착.")
-                        
+                    let walkSuffix = walkInstructionsBuffer.joined(separator: " 및 ")
+                    let connector = walkSuffix.contains("출구") ? "를 통해 나가서" : "로 이동하여"
+                    let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 \(walkSuffix)\(connector) 도착.")
+                    
+                    rawTransitSteps[lastIdx] = RouteStep(
+                        type: lastStep.type,
+                        instruction: newInstruction,
+                        detail: lastStep.detail,
+                        action: lastStep.action,
+                        stopCount: lastStep.stopCount,
+                        duration: lastStep.duration,
+                        distance: lastStep.distance,
+                        vehicleType: lastStep.vehicleType
+                    )
+                } else if !rawTransitSteps.isEmpty {
+                    let lastIdx = rawTransitSteps.count - 1
+                    let lastStep = rawTransitSteps[lastIdx]
+                    if !lastStep.instruction.contains("도착") {
+                        let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 도착.")
                         rawTransitSteps[lastIdx] = RouteStep(
                             type: lastStep.type,
                             instruction: newInstruction,
@@ -445,72 +406,51 @@ class APIService {
                             vehicleType: lastStep.vehicleType
                         )
                     }
- else if !rawTransitSteps.isEmpty {
-                        let lastIdx = rawTransitSteps.count - 1
-                        let lastStep = rawTransitSteps[lastIdx]
-                        if !lastStep.instruction.contains("도착") {
-                            let newInstruction = lastStep.instruction.replacingOccurrences(of: "하차.", with: "하차하여 도착.")
-                            rawTransitSteps[lastIdx] = RouteStep(
-                                type: lastStep.type,
-                                instruction: newInstruction,
-                                detail: lastStep.detail,
-                                action: lastStep.action,
-                                stopCount: lastStep.stopCount,
-                                duration: lastStep.duration,
-                                distance: lastStep.distance,
-                                vehicleType: lastStep.vehicleType
-                            )
-                        }
-                    }
-                    
-                    // 결과가 도보뿐이라 대중교통이 하나도 없는 경우에만 도보 단계 노출
-                    let transitResult = rawTransitSteps.isEmpty ? allSteps : rawTransitSteps
-                    
-                    // 중간 단계의 "하차"를 "하차 및 환승"으로 보완
-                    let processedSteps = transitResult.enumerated().map { (index, step) -> RouteStep in
-                        if index < transitResult.count - 1 && step.type != .walk {
-                            let newInstruction = step.instruction.replacingOccurrences(of: "하차.", with: "하차 및 환승.")
-                            return RouteStep(
-                                type: step.type,
-                                instruction: newInstruction,
-                                detail: step.detail,
-                                action: step.action,
-                                stopCount: step.stopCount,
-                                duration: step.duration,
-                                distance: step.distance,
-                                vehicleType: step.vehicleType
-                            )
-                        }
-                        return step
-                    }
-                    
-                    // 총 소요 시간 및 거리
-                    let totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text ?? ""
-                    let totalDistance = leg.localizedValues?.distance?.text ?? ""
-                    
-                    print("✅ Route Integrated: \(processedSteps.count) steps, Duration: \(totalDuration)")
-                    let routeData = RouteData(steps: processedSteps, totalDuration: totalDuration, totalDistance: totalDistance)
-                    completion(routeData, false) // 성공 (Fallback 아님)
-                } else {
-                    print("⚠️ No routes found in response")
-                    
-                    // Fallback Logic: 선호 수단으로 검색했는데 실패했다면, 전체 수단으로 재검색
-                    if let modes = preferredModes, !modes.isEmpty {
-                        print("🔄 Fallback: Retrying with ALL modes...")
-                        // 재시도 시에는 복잡한 제약조건을 풀고 기본 검색 시도
-                        self.fetchRoute(from: origin, to: destination, currentLocation: currentLocation, preferredModes: nil, routingPreference: nil) { retryData, _ in
-                            // 재시도 결과 반환 (이때는 Fallback이 적용되었음을 알림 -> true)
-                            completion(retryData, true)
-                        }
-                    } else {
-                        completion(nil, false)
-                    }
                 }
-            } catch {
-                print("❌ Google Routes Decoding Error: \(error)")
-                completion(nil, false)
+                
+                let transitResult = rawTransitSteps.isEmpty ? allSteps : rawTransitSteps
+                
+                // 중간 단계 "하차" -> "하차 및 환승"
+                let processedSteps = transitResult.enumerated().map { (index, step) -> RouteStep in
+                    if index < transitResult.count - 1 && step.type != .walk {
+                        let newInstruction = step.instruction.replacingOccurrences(of: "하차.", with: "하차 및 환승.")
+                        return RouteStep(
+                            type: step.type,
+                            instruction: newInstruction,
+                            detail: step.detail,
+                            action: step.action,
+                            stopCount: step.stopCount,
+                            duration: step.duration,
+                            distance: step.distance,
+                            vehicleType: step.vehicleType
+                        )
+                    }
+                    return step
+                }
+                
+                let totalDuration = leg.localizedValues?.duration?.text ?? leg.localizedValues?.staticDuration?.text ?? ""
+                let totalDistance = leg.localizedValues?.distance?.text ?? ""
+                
+                print("✅ Route Integrated: \(processedSteps.count) steps, Duration: \(totalDuration)")
+                let routeData = RouteData(steps: processedSteps, totalDuration: totalDuration, totalDistance: totalDistance)
+                return (routeData, false)
+            } else {
+                print("⚠️ No routes found in response")
+                
+                // Fallback Logic
+                if let modes = preferredModes, !modes.isEmpty {
+                    print("🔄 Fallback: Retrying with ALL modes...")
+                    // 재귀 호출
+                    let (retryData, _) = try await self.fetchRoute(from: origin, to: destination, currentLocation: currentLocation, preferredModes: nil, routingPreference: nil)
+                    return (retryData, true)
+                } else {
+                    return (nil, false)
+                }
             }
-        }.resume()
+        } catch {
+            print("❌ Google Routes Decoding Error: \(error)")
+            throw DigitalCaneError.parsingError(error.localizedDescription)
+        }
     }
     
 
@@ -520,21 +460,23 @@ class APIService {
 
     
     // MARK: - 4. Nearby Places Search (Google Places API v1)
-    func fetchNearbyPlaces(latitude: Double, longitude: Double, radius: Double, completion: @escaping ([Place]?, String?) -> Void) {
+    func fetchNearbyPlaces(latitude: Double, longitude: Double, radius: Double) async throws -> [Place] {
         print("🔍 [NearbyPlaces] Requesting places at: (\(latitude), \(longitude)), radius: \(radius)m")
+        
+        guard !googleApiKey.isEmpty else {
+            throw DigitalCaneError.missingAPIKey
+        }
         
         let url = URL(string: "https://places.googleapis.com/v1/places:searchNearby")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.addValue(Bundle.main.bundleIdentifier ?? "kr.ac.kaist.assistiveailab.DigitalCane", forHTTPHeaderField: "X-Ios-Bundle-Identifier")
-        // 필요한 필드만 요청 (위치 정보, 접근성 정보, 영업 상태 추가)
         request.addValue("places.displayName,places.primaryType,places.formattedAddress,places.location,places.accessibilityOptions,places.businessStatus", forHTTPHeaderField: "X-Goog-FieldMask")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Google Places API 문서에 따르면, includedTypes를 생략하면 모든 장소 유형이 반환됩니다. (Table A 등 필터 제한 없음)
         let requestBody: [String: Any] = [
-            "maxResultCount": 20, // 결과 개수 살짝 늘림
+            "maxResultCount": 20,
             "locationRestriction": [
                 "circle": [
                     "center": [
@@ -547,96 +489,60 @@ class APIService {
             "languageCode": "ko"
         ]
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            completion(nil, "요청 데이터 생성 실패")
-            return
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+             throw DigitalCaneError.networkError("Invalid Response Type")
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Places Network Error: \(error.localizedDescription)")
-                completion(nil, "서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.")
-                return
+        if httpResponse.statusCode != 200 {
+            throw DigitalCaneError.networkError("Google Places API Error: \(httpResponse.statusCode)")
+        }
+        
+        guard !data.isEmpty else {
+            return []
+        }
+        
+        let decodedResponse = try JSONDecoder().decode(PlacesResponse.self, from: data)
+        let places = decodedResponse.places?.compactMap { place -> Place? in
+            guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
+            if let status = place.businessStatus, status != "OPERATIONAL" {
+                return nil
             }
+            guard let name = place.displayName?.text, !name.isEmpty else { return nil }
             
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode != 200 {
-                    let errorMsg = "API 오류: \(httpResponse.statusCode). 키 설정을 확인하세요."
-                    print("Projects API Status Code: \(httpResponse.statusCode)")
-                    if let data = data, let str = String(data: data, encoding: .utf8) {
-                        print("Error Body: \(str)")
+            return Place(
+                name: name,
+                address: place.formattedAddress ?? "",
+                types: place.types ?? [],
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                isWheelchairAccessible: place.accessibilityOptions?.wheelchairAccessibleEntrance ?? false
+            )
+        }
+        
+        // 중복 제거 로직
+        var uniquePlaces: [Place] = []
+        if let places = places {
+            for place in places {
+                let isDuplicate = uniquePlaces.contains { existingPlace in
+                    if existingPlace.name == place.name {
+                        let loc1 = CLLocation(latitude: existingPlace.coordinate.latitude, longitude: existingPlace.coordinate.longitude)
+                        let loc2 = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
+                        return loc1.distance(from: loc2) < 30.0
                     }
-                    completion(nil, errorMsg)
-                    return
+                    return false
+                }
+                
+                if !isDuplicate {
+                    uniquePlaces.append(place)
                 }
             }
-            
-            guard let data = data else {
-                completion(nil, "데이터가 비어있습니다.")
-                return
-            }
-            
-            do {
-                let decodedResponse = try JSONDecoder().decode(PlacesResponse.self, from: data)
-                let places = decodedResponse.places?.compactMap { place -> Place? in
-                    // 위치 정보가 없으면 제외
-                    guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
-                    // 영업 중(OPERATIONAL)인 장소만 포함
-                    if let status = place.businessStatus, status != "OPERATIONAL" {
-                        return nil
-                    }
-
-                    // 비어있는 이름 제외 (간혹 API가 빈 이름을 줄 때가 있음)
-                    guard let name = place.displayName?.text, !name.isEmpty else { return nil }
-                    
-                    return Place(
-                        name: name,
-                        address: place.formattedAddress ?? "",
-                        types: place.types ?? [],
-                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                        isWheelchairAccessible: place.accessibilityOptions?.wheelchairAccessibleEntrance ?? false
-                    )
-                }
-                
-                
-                // 고도화된 중복 제거 로직
-                // 1. 이름이 같고
-                // 2. 서로 거리가 30m 이내이면 같은 장소로 간주 (Google Maps 데이터 노이즈 제거)
-                var uniquePlaces: [Place] = []
-                
-                if let places = places {
-                    for place in places {
-                        let isDuplicate = uniquePlaces.contains { existingPlace in
-                            if existingPlace.name == place.name {
-                                let loc1 = CLLocation(latitude: existingPlace.coordinate.latitude, longitude: existingPlace.coordinate.longitude)
-                                let loc2 = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
-                                return loc1.distance(from: loc2) < 30.0 // 30m 이내 중복 제거
-                            }
-                            return false
-                        }
-                        
-                        if !isDuplicate {
-                            uniquePlaces.append(place)
-                        }
-                    }
-                }
-                
-                print("✅ [NearbyPlaces] Received \(uniquePlaces.count) places (Unique)")
-                if !uniquePlaces.isEmpty {
-                    print("📍 Places: \(uniquePlaces.prefix(5).map { $0.name })")
-                }
-                
-                completion(uniquePlaces, nil)
-            } catch {
-                print("Places Decoding Error: \(error)")
-                if let str = String(data: data, encoding: .utf8) {
-                    print("Raw Res: \(str)")
-                }
-                completion(nil, "응답 데이터 분석 실패")
-            }
-        }.resume()
+        }
+        
+        print("✅ [NearbyPlaces] Received \(uniquePlaces.count) places (Unique)")
+        return uniquePlaces
     }
     
     // MARK: - 5. Overpass API (Building Geometry)
@@ -645,9 +551,10 @@ class APIService {
     /// - Parameters:
     ///   - location: 검색 중심 좌표
     ///   - radius: 검색 반경 (미터, 기본값 30m)
-    func fetchNearbyBuildings(at location: CLLocationCoordinate2D, radius: Double = 30.0, completion: @escaping ([BuildingPolygon]) -> Void) {
-        // Overpass QL Query
-        // 반경 내의 building 태그가 있는 way와 relation을 검색하고 기하학적 정보(geom)를 포함하여 반환
+    // MARK: - 5. Overpass API (Building Geometry)
+    
+    /// Overpass API를 사용하여 주변 건물의 형상(Polygon) 데이터를 가져옵니다.
+    func fetchNearbyBuildings(at location: CLLocationCoordinate2D, radius: Double = 30.0) async throws -> [BuildingPolygon] {
         let lat = location.latitude
         let lon = location.longitude
         
@@ -661,7 +568,6 @@ class APIService {
           node["shop"](around:\(radius),\(lat),\(lon));
           
           // 2. 대규모 구역 포함 여부 확인 (Context)
-          // 현재 좌표가 포함된(is_in) 영역 중 대학, 공원, 병원 등 대규모 시설 검색
           is_in(\(lat),\(lon))->.a;
           way.a["amenity"="university"];
           relation.a["amenity"="university"];
@@ -673,116 +579,96 @@ class APIService {
         out geom;
         """
         
-        guard let url = URL(string: "https://overpass-api.de/api/interpreter") else { return }
+        guard let url = URL(string: "https://overpass-api.de/api/interpreter") else {
+            throw DigitalCaneError.networkError("Invalid Overpass API URL")
+        }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.httpBody = "data=\(query)".data(using: .utf8)
         
-        print("🏗️ [Overpass] Requesting building geometries...")
+        let (data, response) = try await URLSession.shared.data(for: request)
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                print("Overpass Network Error: \(error?.localizedDescription ?? "Unknown")")
-                completion([])
-                return
-            }
-            
-            do {
-                let decoded = try JSONDecoder().decode(OverpassResponse.self, from: data)
-                let buildings = decoded.elements.compactMap { element -> BuildingPolygon? in
-                    // 1. Way/Relation (건물 Polygon)
-                    if let geometry = element.geometry, !geometry.isEmpty {
-                         let name = element.tags?["name"] ?? element.tags?["name:en"]
-                         let points = geometry.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
-                     
-                         // 타입 판별: 대규모 구역(university, park, campus) 우선 확인
-                         var type: BuildingPolygon.ObjectType = .building
-                         if element.tags?["amenity"] == "university" || 
-                            element.tags?["leisure"] == "park" ||
-                            element.tags?["landuse"] == "campus" {
-                             type = .area
-                         }
-                     
-                         return BuildingPolygon(id: element.id, name: name ?? "건물", points: points, type: type)
-                    }
-                    
-                    // 2. Node (POI 점) - 건물이 아닌 경우
-                    else if element.type == "node", let lat = element.lat, let lon = element.lon {
-                        // 이름 또는 의미 있는 태그 확인
-                        let nameTag = element.tags?["name"] ?? element.tags?["name:en"]
-                        let amenity = element.tags?["amenity"]
-                        let shop = element.tags?["shop"]
-                        
-                        // 필터링: 이름도 없고 편의시설/상점 태그도 명확치 않은 단순 노드는 제외
-                        guard nameTag != nil || amenity != nil || shop != nil else { return nil }
-                        
-                        // 블랙리스트 필터링: 사용자에게 혼란을 주거나 불필요한 기술적 시설 제외
-                        // 단, 주차장(parking)은 유지
-                        if let amenity = amenity {
-                            let blacklist = ["waste_basket", "bench", "waste_disposal", "power_pole", "street_lamp"]
-                            if blacklist.contains(amenity) { return nil }
-                        }
-                        
-                        // 3. 이름 결정 로직 (이름 > 시설종류)
-                        var displayName = nameTag
-                        
-                        if displayName == nil {
-                            // 이름이 없을 때, 특정 카테고리는 일반명사로 안내 허용
-                            if amenity == "parking" { displayName = "주차장" }
-                            else if amenity == "toilets" { displayName = "화장실" }
-                            else if shop == "convenience" { displayName = "편의점" }
-                            else { 
-                                // 이름도 없고 허용된 카테고리도 아니면 제외 (안전장치)
-                                return nil 
-                            }
-                        }
-                        
-                        // 안전장치: 혹시라도 이름이 없으면 제외
-                        guard let finalName = displayName else { return nil }
-                        
-                        // 점 정보이지만 Ray Casting 알고리즘 일관성을 위해 1m 반경의 초미세 사각형으로 변환
-                        let offset = 0.00001 // 약 1m
-                        let points = [
-                            CLLocationCoordinate2D(latitude: lat - offset, longitude: lon - offset),
-                            CLLocationCoordinate2D(latitude: lat + offset, longitude: lon - offset),
-                            CLLocationCoordinate2D(latitude: lat + offset, longitude: lon + offset),
-                            CLLocationCoordinate2D(latitude: lat - offset, longitude: lon + offset)
-                        ]
-                        return BuildingPolygon(id: element.id, name: finalName, points: points, type: .poi)
-                    }
-                    
-                    return nil
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Overpass API Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        }
+        
+        do {
+            let decoded = try JSONDecoder().decode(OverpassResponse.self, from: data)
+            let buildings = decoded.elements.compactMap { element -> BuildingPolygon? in
+                // 1. Way/Relation
+                if let geometry = element.geometry, !geometry.isEmpty {
+                     let name = element.tags?["name"] ?? element.tags?["name:en"]
+                     let points = geometry.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
+                 
+                     var type: BuildingPolygon.ObjectType = .building
+                     if element.tags?["amenity"] == "university" || 
+                        element.tags?["leisure"] == "park" ||
+                        element.tags?["landuse"] == "campus" {
+                         type = .area
+                     }
+                 
+                     return BuildingPolygon(id: element.id, name: name ?? "건물", points: points, type: type)
                 }
                 
-                print("🏗️ [Overpass] Found \(buildings.count) buildings with geometry.")
-                completion(buildings)
+                // 2. Node (POI)
+                else if element.type == "node", let lat = element.lat, let lon = element.lon {
+                    let nameTag = element.tags?["name"] ?? element.tags?["name:en"]
+                    let amenity = element.tags?["amenity"]
+                    let shop = element.tags?["shop"]
+                    
+                    guard nameTag != nil || amenity != nil || shop != nil else { return nil }
+                    
+                    if let amenity = amenity {
+                        let blacklist = ["waste_basket", "bench", "waste_disposal", "power_pole", "street_lamp"]
+                        if blacklist.contains(amenity) { return nil }
+                    }
+                    
+                    var displayName = nameTag
+                    
+                    if displayName == nil {
+                        if amenity == "parking" { displayName = "주차장" }
+                        else if amenity == "toilets" { displayName = "화장실" }
+                        else if shop == "convenience" { displayName = "편의점" }
+                        else { return nil }
+                    }
+                    
+                    guard let finalName = displayName else { return nil }
+                    
+                    let offset = 0.00001
+                    let points = [
+                        CLLocationCoordinate2D(latitude: lat - offset, longitude: lon - offset),
+                        CLLocationCoordinate2D(latitude: lat + offset, longitude: lon - offset),
+                        CLLocationCoordinate2D(latitude: lat + offset, longitude: lon + offset),
+                        CLLocationCoordinate2D(latitude: lat - offset, longitude: lon + offset)
+                    ]
+                    return BuildingPolygon(id: element.id, name: finalName, points: points, type: .poi)
+                }
                 
-            } catch {
-                print("Overpass Decoding Error: \(error)")
-                completion([])
+                return nil
             }
-        }.resume()
+            
+            print("🏗️ [Overpass] Found \(buildings.count) buildings with geometry.")
+            return buildings
+            
+        } catch {
+            print("Overpass Decoding Error: \(error)")
+             throw DigitalCaneError.parsingError(error.localizedDescription)
+        }
     }
     
     // MARK: - Google Places API (Recall Place Name)
     // Overpass에서 "건물"이라고만 나오고 이름이 없을 때, Google Places API로 이름을 보완
-    func fetchNearbyPlaceName(at coordinate: CLLocationCoordinate2D, completion: @escaping (String?) -> Void) {
-        let apiKey = self.googleApiKey // Routes API 키 재사용
-        guard !apiKey.isEmpty else { 
-            print("⚠️ Google API Key missing for Places")
-            completion(nil)
-            return 
-        }
+    func fetchNearbyPlaceName(at coordinate: CLLocationCoordinate2D) async throws -> String? {
+        guard !googleApiKey.isEmpty else { return nil }
         
         let url = URL(string: "https://places.googleapis.com/v1/places:searchNearby")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        request.addValue(googleApiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.addValue("places.displayName", forHTTPHeaderField: "X-Goog-FieldMask")
         
-        // 반경 20m 내에서 검색
         let requestBody: [String: Any] = [
             "locationRestriction": [
                 "circle": [
@@ -794,42 +680,32 @@ class APIService {
                 ]
             ],
             "maxResultCount": 1,
-            "rankPreference": "DISTANCE" // 거리순 정렬 (가장 가까운 곳 우선)
+            "rankPreference": "DISTANCE"
         ]
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            completion(nil)
-            return
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                completion(nil)
-                return
-            }
-            
-            do {
-                let decoded = try JSONDecoder().decode(PlacesResponse.self, from: data)
-                if let firstPlace = decoded.places?.first, let name = firstPlace.displayName?.text {
-                    print("🏛️ [Google Places] Found Name: \(name)")
-                    completion(name)
-                } else {
-                    completion(nil)
-                }
-            } catch {
-                print("Google Places Decode Error: \(error)")
-                completion(nil)
-            }
-        }.resume()
+        let decoded = try JSONDecoder().decode(PlacesResponse.self, from: data)
+        if let firstPlace = decoded.places?.first, let name = firstPlace.displayName?.text {
+            print("🏛️ [Google Places] Found Name: \(name)")
+            return name
+        }
+        
+        return nil
     }
     
     // MARK: - 4. Text Search (POI Validation)
-    func searchPlaces(query: String, completion: @escaping ([Place]?) -> Void) {
-        guard !query.isEmpty else {
-            completion(nil)
-            return
+    func searchPlaces(query: String) async throws -> [Place] {
+        guard !query.isEmpty else { return [] }
+        
+        guard !googleApiKey.isEmpty else {
+            throw DigitalCaneError.missingAPIKey
         }
         
         let url = URL(string: "https://places.googleapis.com/v1/places:searchText")!
@@ -846,45 +722,27 @@ class APIService {
             "languageCode": "ko"
         ]
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            completion(nil)
-            return
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Places Search Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        }
+            
+        let decodedResponse = try JSONDecoder().decode(PlacesResponse.self, from: data)
+        let places = decodedResponse.places?.compactMap { place -> Place? in
+            guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
+            return Place(
+                name: place.displayName?.text ?? query,
+                address: place.formattedAddress ?? "",
+                types: place.types ?? [],
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                isWheelchairAccessible: false
+            )
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, error == nil else {
-                print("Places Search Network Error: \(error?.localizedDescription ?? "Unknown error")")
-                completion(nil)
-                return
-            }
-            
-            do {
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                     print("Places Search API Error: \(httpResponse.statusCode)")
-                     completion(nil)
-                     return
-                }
-                
-                let decodedResponse = try JSONDecoder().decode(PlacesResponse.self, from: data)
-                let places = decodedResponse.places?.compactMap { place -> Place? in
-                    guard let lat = place.location?.latitude, let lng = place.location?.longitude else { return nil }
-                    return Place(
-                        name: place.displayName?.text ?? query,
-                        address: place.formattedAddress ?? "",
-                        types: place.types ?? [],
-                        coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                        isWheelchairAccessible: place.accessibilityOptions?.wheelchairAccessibleEntrance ?? false
-                    )
-                }
-                
-                completion(places)
-            } catch {
-                print("Places Search Decoding Error: \(error)")
-                completion(nil)
-            }
-        }.resume()
+        return places ?? []
     }
     
     // MARK: - Step Conversion

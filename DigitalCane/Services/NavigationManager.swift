@@ -93,102 +93,123 @@ class NavigationManager: ObservableObject {
         // 전체 대화 맥락을 포함하여 AI에 전달
         let fullContext = conversationHistory.joined(separator: "\n")
         
-        // 1. LLM을 통한 의도 파악 (대화 맥락 포함)
-        APIService.shared.analyzeIntent(from: fullContext) { [weak self] intent in
-            guard let self = self else { return }
-            
-            // 1-1. 추가 정보가 필요한 경우 (대화형 정교화)
-            if let intent = intent, intent.clarificationNeeded == true, let question = intent.clarificationQuestion {
-                print("Clarification needed: \(question)")
-                DispatchQueue.main.async {
-                    // AI 질문도 히스토리에 추가
-                    self.conversationHistory.append("AI: \(question)")
-                    self.isWaitingForClarification = true
-                    self.isLoading = false
-                    onFailure(question)
-                }
-                return
-            }
-            
-            // 1-2. 의도 파악 실패 혹은 목적지가 없는 경우
-            guard let intent = intent, !intent.destinationName.isEmpty else {
-                print("Intent analysis failed or empty destination")
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                    self.isWaitingForClarification = true // 추가 정보 요청
-                    onFailure("목적지를 명확히 인식하지 못했습니다. 어디로 가고 싶으신가요?")
-                }
-                return
-            }
-            
-            // 성공적으로 의도 파악 완료
-            DispatchQueue.main.async {
-                self.isWaitingForClarification = false
-            }
-            
-            print("Analyzed Intent: Go to \(intent.destinationName) from \(intent.originName ?? "Current")")
-            
-            // 2. 목적지 검증 (Google Places API)
-            APIService.shared.searchPlaces(query: intent.destinationName) { [weak self] foundPlaces in
-                guard let self = self else { return }
+        Task {
+            do {
+                // 1. LLM을 통한 의도 파악 (대화 맥락 포함)
+                // analyzeIntent returns LocationIntent?
+                let intent = try await APIService.shared.analyzeIntent(from: fullContext)
                 
-                DispatchQueue.main.async {
-                    guard let places = foundPlaces, !places.isEmpty else {
+                // 1-1. 추가 정보가 필요한 경우 (대화형 정교화)
+                if let intent = intent, intent.clarificationNeeded == true, let question = intent.clarificationQuestion {
+                    print("Clarification needed: \(question)")
+                    await MainActor.run {
+                        // AI 질문도 히스토리에 추가
+                        self.conversationHistory.append("AI: \(question)")
+                        self.isWaitingForClarification = true
+                        self.isLoading = false
+                        onFailure(question)
+                    }
+                    return
+                }
+                
+                // 1-2. 의도 파악 실패 혹은 목적지가 없는 경우
+                guard let intent = intent, !intent.destinationName.isEmpty else {
+                    print("Intent analysis failed or empty destination")
+                    await MainActor.run {
+                        self.isLoading = false
+                        self.isWaitingForClarification = true // 추가 정보 요청
+                        onFailure("목적지를 명확히 인식하지 못했습니다. 어디로 가고 싶으신가요?")
+                    }
+                    return
+                }
+                
+                // 성공적으로 의도 파악 완료
+                await MainActor.run {
+                    self.isWaitingForClarification = false
+                }
+                
+                print("Analyzed Intent: Go to \(intent.destinationName) from \(intent.originName ?? "Current")")
+                
+                // 2. 목적지 검증 (Google Places API)
+                let foundPlaces = try await APIService.shared.searchPlaces(query: intent.destinationName)
+                
+                guard !foundPlaces.isEmpty else {
+                    await MainActor.run {
                         self.isLoading = false
                         onFailure("해당 장소를 찾을 수 없습니다. 정확한 이름을 다시 말씀해 주세요.")
-                        return
                     }
-                    
-                    let bestMatch = places[0]
-                    let validatedDestination = bestMatch.address.isEmpty ? bestMatch.name : bestMatch.address
-                    let displayName = bestMatch.name
-                    
-                    // 출발지 결정
-                    let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
-                    
-                    let preferredModes = intent.preferredTransportModes
-                    let routingPreference = intent.routingPreference
-                    
-                    APIService.shared.fetchRoute(from: origin, 
-                                                 to: validatedDestination, 
-                                                 currentLocation: locationManager.currentLocation,
-                                                 preferredModes: preferredModes,
-                                                 routingPreference: routingPreference) { [weak self] routeData, isFallbackApplied in
-                        guard let self = self else { return }
+                    return
+                }
+                
+                let bestMatch = foundPlaces[0]
+                let validatedDestination = bestMatch.address.isEmpty ? bestMatch.name : bestMatch.address
+                let displayName = bestMatch.name
+                
+                // 출발지 결정
+                let origin = (intent.originName?.isEmpty == false) ? intent.originName! : "Current Location"
+                
+                let preferredModes = intent.preferredTransportModes
+                let routingPreference = intent.routingPreference
+                
+                // 3. 경로 검색 (Google Routes API)
+                let (routeData, isFallbackApplied) = try await APIService.shared.fetchRoute(
+                    from: origin,
+                    to: validatedDestination,
+                    currentLocation: locationManager.currentLocation,
+                    preferredModes: preferredModes,
+                    routingPreference: routingPreference
+                )
                         
-                        DispatchQueue.main.async {
-                            self.isLoading = false
-                            if let routeData = routeData {
-                                // 실제 적용된 옵션 저장 (우선순위: Intent -> Settings -> nil)
-                                // 빈 문자열("")도 nil처럼 취급하여 설정값이 무시되지 않도록 함
-                                var appliedPref: String? = nil
-                                if let intentPref = routingPreference, !intentPref.isEmpty {
-                                    appliedPref = intentPref
-                                }
-                                
-                                if appliedPref == nil {
-                                    // Intent가 없으면 설정값을 확인하여 무엇이 적용되었는지 추적
-                                    if UserDefaults.standard.bool(forKey: "preferLessWalking") {
-                                        appliedPref = "LESS_WALKING"
-                                    } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
-                                        appliedPref = "FEWER_TRANSFERS"
-                                        }
-                                }
-                                self.activeRoutingPreference = appliedPref
-                                self.activeTransportModes = preferredModes // 교통수단 정보 저장
-                                
-                                self.startNavigation(with: routeData, 
-                                                     origin: origin, 
-                                                     destination: displayName, 
-                                                     isFallback: isFallbackApplied)
-                            } else {
-                                let modeNames = (preferredModes ?? []).joined(separator: ", ")
-                                let failMsg = preferredModes != nil 
-                                    ? "요청하신 \(modeNames) 경로를 찾을 수 없습니다." 
-                                    : "해당 목적지로 가는 경로를 찾을 수 없습니다."
-                                onFailure(failMsg)
+                await MainActor.run {
+                    self.isLoading = false
+                    
+                    if let routeData = routeData {
+                        // 실제 적용된 옵션 저장 (우선순위: Intent -> Settings -> nil)
+                        var appliedPref: String? = nil
+                        if let intentPref = routingPreference, !intentPref.isEmpty {
+                            appliedPref = intentPref
+                        }
+                        
+                        if appliedPref == nil {
+                            // Intent가 없으면 설정값을 확인하여 무엇이 적용되었는지 추적
+                            if UserDefaults.standard.bool(forKey: "preferLessWalking") {
+                                appliedPref = "LESS_WALKING"
+                            } else if UserDefaults.standard.bool(forKey: "preferFewerTransfers") {
+                                appliedPref = "FEWER_TRANSFERS"
                             }
                         }
+                        self.activeRoutingPreference = appliedPref
+                        self.activeTransportModes = preferredModes // 교통수단 정보 저장
+                        
+                        self.startNavigation(with: routeData,
+                                             origin: origin,
+                                             destination: displayName,
+                                             isFallback: isFallbackApplied)
+                    } else {
+                        let modeNames = (preferredModes ?? []).joined(separator: ", ")
+                        let failMsg = preferredModes != nil
+                            ? "요청하신 \(modeNames) 경로를 찾을 수 없습니다."
+                            : "해당 목적지로 가는 경로를 찾을 수 없습니다."
+                        onFailure(failMsg)
+                    }
+                }
+                
+            } catch {
+                print("Navigation Error: \(error)")
+                await MainActor.run {
+                    self.isLoading = false
+                    
+                    if let digitalCaneError = error as? APIService.DigitalCaneError {
+                        switch digitalCaneError {
+                        case .networkError(let msg), .parsingError(let msg), .apiError(let msg):
+                             onFailure("오류가 발생했습니다: \(msg)")
+                        case .missingAPIKey:
+                             onFailure("API 키가 누락되었습니다. 설정을 확인해 주세요.")
+                        default:
+                             onFailure("알 수 없는 오류가 발생했습니다.")
+                        }
+                    } else {
+                        onFailure("경로를 탐색하는 중 오류가 발생했습니다: \(error.localizedDescription)")
                     }
                 }
             }
