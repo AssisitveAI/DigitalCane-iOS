@@ -28,14 +28,6 @@ class APIService {
         return value
     }
     
-    // MARK: - Error Handling
-    enum DigitalCaneError: Error {
-        case networkError(String)
-        case parsingError(String)
-        case missingAPIKey
-        case apiError(String)
-        case locationError(String)
-    }
 
     // MARK: - Helper: Network Check
     private func checkNetwork() throws {
