@@ -37,9 +37,17 @@ class APIService {
         case locationError(String)
     }
 
+    // MARK: - Helper: Network Check
+    private func checkNetwork() throws {
+        if !NetworkMonitor.shared.isConnected {
+            throw DigitalCaneError.notConnected
+        }
+    }
+
     // MARK: - 1. Intent Analysis using Gemini 3 Flash Preview
     // 최신 모델, 최고 수준의 한국어 이해력 및 JSON 신뢰도
     func analyzeIntent(from text: String) async throws -> LocationIntent? {
+        try checkNetwork()
         guard !geminiApiKey.isEmpty else {
             throw DigitalCaneError.missingAPIKey
         }
@@ -107,8 +115,16 @@ class APIService {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw DigitalCaneError.networkError("Gemini API Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DigitalCaneError.invalidResponse
+        }
+        
+        if httpResponse.statusCode == 429 {
+            throw DigitalCaneError.quotaExceeded
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Gemini API Error: \(httpResponse.statusCode)")
         }
             
         do {
@@ -220,6 +236,7 @@ class APIService {
                     currentLocation: CLLocation? = nil, 
                     preferredModes: [String]? = nil,
                     routingPreference: String? = nil) async throws -> (RouteData?, Bool) { // Bool: isFallbackApplied
+        try checkNetwork()
         guard !googleApiKey.isEmpty else {
             throw DigitalCaneError.missingAPIKey
         }
@@ -296,8 +313,16 @@ class APIService {
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw DigitalCaneError.networkError("Google Routes API Error: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DigitalCaneError.invalidResponse
+        }
+        
+        if httpResponse.statusCode == 429 {
+            throw DigitalCaneError.quotaExceeded
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw DigitalCaneError.networkError("Google Routes API Error: \(httpResponse.statusCode)")
         }
         
         do {
@@ -461,6 +486,15 @@ class APIService {
     
     // MARK: - 4. Nearby Places Search (Google Places API v1)
     func fetchNearbyPlaces(latitude: Double, longitude: Double, radius: Double) async throws -> [Place] {
+        try checkNetwork()
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+        
+        // 1. 캐시 확인
+        if let cached = LocationCache.shared.getCachedPlaces(for: location) {
+            print("📦 [Cache] Using cached places for (\(latitude), \(longitude))")
+            return cached
+        }
+        
         print("🔍 [NearbyPlaces] Requesting places at: (\(latitude), \(longitude)), radius: \(radius)m")
         
         guard !googleApiKey.isEmpty else {
@@ -522,7 +556,7 @@ class APIService {
             )
         }
         
-        // 중복 제거 로직
+        // 중복 제거 및 캐시 저장
         var uniquePlaces: [Place] = []
         if let places = places {
             for place in places {
@@ -541,6 +575,9 @@ class APIService {
             }
         }
         
+        // 2. 캐시 저장
+        LocationCache.shared.setCachedPlaces(uniquePlaces, for: location)
+        
         print("✅ [NearbyPlaces] Received \(uniquePlaces.count) places (Unique)")
         return uniquePlaces
     }
@@ -555,6 +592,7 @@ class APIService {
     
     /// Overpass API를 사용하여 주변 건물의 형상(Polygon) 데이터를 가져옵니다.
     func fetchNearbyBuildings(at location: CLLocationCoordinate2D, radius: Double = 30.0) async throws -> [BuildingPolygon] {
+        try checkNetwork()
         let lat = location.latitude
         let lon = location.longitude
         

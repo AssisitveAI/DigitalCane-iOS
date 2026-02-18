@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -43,7 +43,7 @@
 		403D6DEF2EECF0145E636432 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		40E3062BC719F91B30E10A2A /* VoiceCommandModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandModeView.swift; sourceTree = "<group>"; };
 		572B75C8D229A1C70F0235A7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		6B2C1FED9618D6D340310E94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6B2C1FED9618D6D340310E94 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		828D515E329544C82D136D09 /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
 		91C28AD887BE16B2A954A498 /* HelpGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpGuideView.swift; sourceTree = "<group>"; };
 		99BB56EF7641EE3020560C51 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
@@ -52,7 +52,7 @@
 		C4FF16805CADEF927B893B48 /* DigitalCaneError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneError.swift; sourceTree = "<group>"; };
 		C7A1AF6F75E91B4C2936F932 /* NavigationModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationModeView.swift; sourceTree = "<group>"; };
 		DC858A65E0CCF3385E695601 /* DigitalCaneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DigitalCaneApp.swift; sourceTree = "<group>"; };
-		DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DigitalCane.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "디지털케인.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEFEA126B4AFA88DF018BB71 /* NavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -76,7 +76,7 @@
 		560AB5EEF78462F0E58D359A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */,
+				DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -139,7 +139,7 @@
 			packageProductDependencies = (
 			);
 			productName = DigitalCane;
-			productReference = DD4857DBFBA2EF3EAA640265 /* DigitalCane.app */;
+			productReference = DD4857DBFBA2EF3EAA640265 /* 디지털케인.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -161,7 +161,6 @@
 			);
 			mainGroup = 639BA214060B4CCA3B822193;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -274,6 +273,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 2LZ5D35X77;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalCane/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";
@@ -298,6 +298,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 2LZ5D35X77;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DigitalCane/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "디지털케인";

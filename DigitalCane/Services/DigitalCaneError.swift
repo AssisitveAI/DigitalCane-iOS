@@ -6,6 +6,8 @@ enum DigitalCaneError: Error, LocalizedError {
     case locationError(String)
     case invalidResponse
     case missingAPIKey
+    case notConnected
+    case quotaExceeded
     case unknown(String)
     
     var errorDescription: String? {
@@ -20,6 +22,10 @@ enum DigitalCaneError: Error, LocalizedError {
             return "서버로부터 유효하지 않은 응답을 받았습니다."
         case .missingAPIKey:
             return "API 키가 설정되지 않았습니다."
+        case .notConnected:
+            return "인터넷 연결이 끊어졌습니다. 네트워크 상태를 확인해주세요."
+        case .quotaExceeded:
+            return "서비스 사용량이 초과되었습니다. 잠시 후 다시 시도해주세요."
         case .unknown(let message):
             return "알 수 없는 오류가 발생했습니다: \(message)"
         }

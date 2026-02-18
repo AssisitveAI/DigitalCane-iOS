@@ -12,26 +12,29 @@ All notable changes to this project will be documented in this file.
 - **효과**: 향상된 한국어 대화 맥락 이해, 더 높은 JSON 출력 신뢰도, Thinking 기능 지원으로 복잡한 목적지 추론 정확도 향상
 - 입력 토큰 한도 1,048,576 (1M), Structured Output 및 Function Calling 지원
 
-### 🛠 코드 품질 개선 (Refactoring)
+### 🛡️ 서비스 안정성 및 기능 강화 (Phase 1-4)
 
-#### Swift Concurrency 전면 적용
-- `APIService`의 모든 메서드를 `async/await` 패턴으로 전환 (completion handler 제거)
-- 중앙화된 `DigitalCaneError` enum 도입으로 통합 에러 처리
+#### [Phase 1] 네트워크 모니터링 및 정밀 에러 대응
+- **신규 파일**: `Services/NetworkMonitor.swift`
+- **구축**: 실시간 네트워크 연결 상태 확인 스택 구축
+- **안내**: `DigitalCaneError` 및 `SpeechManager.speakError()`를 통한 시각장애인 친화적 음성 에러 피드백 도입
 
-#### OverpassService 분리
-- `LocationManager`에서 Overpass API 로직 및 Ray Casting 알고리즘을 `OverpassService.swift`로 추출
-- 단일 책임 원칙(SRP) 준수 및 모듈성 향상
+#### [Phase 2] 지능형 날씨 브리핑 및 안전 가이드
+- **날씨 현대화**: `WeatherService.swift`를 `async/await` 방식으로 리팩토링
+- **안전 가이드**: 악천후(비, 눈, 안개, 낙뢰) 시 보행 안전 주의 사항 음성 브리핑 추가
+- **통합**: 주변 탐색 시작 시 자동으로 현재 기상 상황 안내
 
-#### Smart Radius 버그 수정
-- `NearbyExploreView`의 스마트 반경 자동 조절 시 디바운싱 로직에 의해 재검색이 차단되던 버그 수정
-- **화면 진입 시 반경 값(m)이 리셋되지 않아 자동 조절이 시작되지 않던 문제 수정**: 이제 진입 시 항상 기본값(100m)으로 초기화되어 새로운 자동 조절 사이클이 시작됩니다.
-- `forceAutoTune` 파라미터로 디바운싱 우회, 반경 변경 시 즉시 재검색 실행
+#### [Phase 3] UX 기반 지능형 햅틱 패턴
+- **신규 파일**: `Services/HapticManager.swift` (독립 모듈화)
+- **POI 특화**: 장소 유형별 차별화된 진동 패턴 적용
+    - **횡단보도/교차로**: 3단 연속 강한 진동 (Warning)
+    - **대중교통(역/정류장)**: 경쾌한 2단 진동 (Notify)
+    - **일반 장소**: 거리에 비례한 단일 진동 유지
 
-#### 에러 처리 강화
-- `LocationManager`의 `try?` → `do-catch` 전환으로 에러 로깅 개선
-
-### 🌐 국제화 (Localization)
-- `NearbyExploreView`, `VoiceCommandModeView`의 사용자 대면 문자열을 `NSLocalizedString`으로 래핑
+#### [Phase 4] 성능 최적화 및 로컬 캐싱
+- **신규 파일**: `Services/LocationCache.swift`
+- **데이터 캐싱**: 인접 위치(15m 이내) 재검색 시 로컬 캐시 사용으로 응답 속도 및 데이터 효율 극대화
+- **배터리 수명**: 앱 lifecycle(`scenePhase`)에 맞춘 센서(위치, 나침반) 자동 중지/재개 로직 적용
 
 ---
 
