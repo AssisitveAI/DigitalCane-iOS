@@ -364,6 +364,7 @@ struct NearbyExploreView: View {
         }
     }
     
+    
     // 스캔 모드 제어
     private func startScanning() {
         guard isVisible else { return } // 화면이 보일 때만 시작
@@ -376,7 +377,6 @@ struct NearbyExploreView: View {
         isScanningMode = false
         compassManager.stop()
     }
-    
     
     // 방향 감지 로직
     private func detectPlaceInDirection(heading: Double, currentLocation: CLLocation) {
@@ -397,22 +397,12 @@ struct NearbyExploreView: View {
         }
         
         // 스마트 가중치 스코어링 (Smart Weighted Scoring)
-        // 목표: "가까운 곳"을 우선하되, 거리가 비슷하면 "더 정면"인 곳을 선택
-        // 점수 공식: (거리 점수 * 0.7) + (각도 점수 * 0.3) -> 낮을수록 좋음 (Penalty Score)
-        // 거리는 로그 스케일 등을 적용할 수도 있으나, 여기선 직관적인 미터 단위와 각도를 정규화하여 비교
-        
         let bestMatch = candidates.min { (a, b) in
-            // 정규화 (Normalization) - 대략적인 범위 가정
-            // 거리: 0~100m 기준 (그 이상은 비슷하게 취급)
-            // 각도: 0~10도 기준
-            
             let distA = min(a.2, 100.0) / 100.0
             let distB = min(b.2, 100.0) / 100.0
-            
             let angleA = a.1 / 10.0
             let angleB = b.1 / 10.0
             
-            // 가중치 적용 (거리 70%, 각도 30%)
             let scoreA = (distA * 0.7) + (angleA * 0.3)
             let scoreB = (distB * 0.7) + (angleB * 0.3)
             
@@ -421,25 +411,17 @@ struct NearbyExploreView: View {
         
         if let match = bestMatch {
             let place = match.0
-            // 시야각 내 장소 업데이트 (UI 표시용)
             if lastAnnouncedPlace?.id != place.id {
                 lastAnnouncedPlace = place
             }
             
             let now = Date()
             if place.id != lastAnnouncedPlaceId || now.timeIntervalSince(lastAnnouncementTime) > 3.0 {
-                // 거리 계산
                 let distance = currentLocation.distance(from: CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude))
                 
-                // 1. 소리 재생 (띠링)
                 SoundManager.shared.play(.finding)
-                
-                // 2. 촉각 나침반 (Core Haptics) - 장소 유형별 특화된 햅틱 피드백
                 hapticManager.playPatternForPlace(place, distance: distance)
                 
-                // 3. 음성 안내
-                
-                // 접근성 정보가 있으면 함께 안내
                 var announcement = place.name
                 if place.isWheelchairAccessible {
                     announcement += ". 입구가 편리합니다."
@@ -451,10 +433,21 @@ struct NearbyExploreView: View {
                 lastAnnouncementTime = now
             }
         } else {
-            // 시야각 밖으로 벗어나면, 방금 안내했던 장소 ID를 리셋합니다.
-            // 이렇게 해야 사용자가 다시 그 방향을 가리켰을 때 즉시 다시 안내받을 수 있습니다. ("아까 그거 뭐였지?" 시나리오 대응)
             lastAnnouncedPlace = nil
             lastAnnouncedPlaceId = nil 
+        }
+    }
+    
+    // MARK: - Weather Briefing
+    private func fetchWeatherInfo(latitude: Double, longitude: Double) async {
+        do {
+            let briefing = try await WeatherService.shared.fetchCurrentWeather(latitude: latitude, longitude: longitude)
+            await MainActor.run {
+                speechManager.speak(briefing)
+                self.weatherAnnounced = true
+            }
+        } catch {
+            print("⚠️ Weather fetch failed: \(error)")
         }
     }
 }
@@ -488,8 +481,4 @@ struct ScanningRadarView: View {
         }
     }
 }
-
-// MARK: - Haptic Manager (Core Haptics)
-// Note: 별도 파일로 분리 시 Xcode 프로젝트 참조 문제 발생 가능성으로 인해 우선 View 파일 내에 포함
-import CoreHaptics
 
