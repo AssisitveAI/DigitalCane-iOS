@@ -199,14 +199,18 @@ class NavigationManager: ObservableObject {
                 await MainActor.run {
                     self.isLoading = false
                     
-                    if let digitalCaneError = error as? APIService.DigitalCaneError {
+                    if let digitalCaneError = error as? DigitalCaneError {
                         switch digitalCaneError {
-                        case .networkError(let msg), .parsingError(let msg), .apiError(let msg):
+                        case .networkError(let msg), .parsingError(let msg):
                              onFailure("오류가 발생했습니다: \(msg)")
                         case .missingAPIKey:
                              onFailure("API 키가 누락되었습니다. 설정을 확인해 주세요.")
+                        case .notConnected:
+                             onFailure("인터넷 연결이 원활하지 않습니다.")
+                        case .quotaExceeded:
+                             onFailure("사용량이 초구되었습니다. 잠시 후 다시 시도해 주세요.")
                         default:
-                             onFailure("알 수 없는 오류가 발생했습니다.")
+                             onFailure(digitalCaneError.localizedDescription)
                         }
                     } else {
                         onFailure("경로를 탐색하는 중 오류가 발생했습니다: \(error.localizedDescription)")
