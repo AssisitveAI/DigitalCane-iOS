@@ -107,9 +107,10 @@ struct NearbyExploreView: View {
             isVisible = true // 화면 진입
             
             // 앱/화면 진입 시 스마트 반경 모드를 항상 기본값으로 활성화 (사용자 편의성)
-            // 이전에 수동으로 껐더라도, 다시 들어오면 자동 모드로 시작하여 최적의 경험 제공
-            if !isAutoRadiusEnabled {
+            // 이전에 수동으로 껐거나 반경을 변경했더라도, 다시 들어오면 자동 모드로 시작하여 최적의 경험 제공
+            if !isAutoRadiusEnabled || searchRadius != 100.0 {
                 isAutoRadiusEnabled = true
+                searchRadius = 100.0
             }
             
             hapticManager.prepare() // 햅틱 엔진 준비

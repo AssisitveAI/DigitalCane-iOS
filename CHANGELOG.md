@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 #### Smart Radius 버그 수정
 - `NearbyExploreView`의 스마트 반경 자동 조절 시 디바운싱 로직에 의해 재검색이 차단되던 버그 수정
+- **화면 진입 시 반경 값(m)이 리셋되지 않아 자동 조절이 시작되지 않던 문제 수정**: 이제 진입 시 항상 기본값(100m)으로 초기화되어 새로운 자동 조절 사이클이 시작됩니다.
 - `forceAutoTune` 파라미터로 디바운싱 우회, 반경 변경 시 즉시 재검색 실행
 
 #### 에러 처리 강화
