@@ -593,6 +593,14 @@ class APIService {
     /// Overpass API를 사용하여 주변 건물의 형상(Polygon) 데이터를 가져옵니다.
     func fetchNearbyBuildings(at location: CLLocationCoordinate2D, radius: Double = 30.0) async throws -> [BuildingPolygon] {
         try checkNetwork()
+        let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+        
+        // 1. 캐시 확인
+        if let cached = LocationCache.shared.getCachedBuildings(for: clLocation) {
+            print("📦 [Cache] Using cached buildings for (\(location.latitude), \(location.longitude))")
+            return cached
+        }
+        
         let lat = location.latitude
         let lon = location.longitude
         
@@ -687,6 +695,10 @@ class APIService {
             }
             
             print("🏗️ [Overpass] Found \(buildings.count) buildings with geometry.")
+            
+            // 2. 캐시 저장
+            LocationCache.shared.setCachedBuildings(buildings, for: clLocation)
+            
             return buildings
             
         } catch {
