@@ -122,47 +122,59 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                     print("🏢 [Precision] Matched Object: \(matchedObject.name) (\(matchedObject.type))")
                     
                     await MainActor.run {
-                        let overpassName = matchedObject.name
-                        
-                        // Check if Google Place Name is needed
-                        if overpassName == "건물" || overpassName.isEmpty {
-                            print("🟡 [Hybrid] Overpass name missing, calling Google Places...")
-                            
-                            Task {
-                                do {
-                                    let googleName = try await APIService.shared.fetchNearbyPlaceName(at: location.coordinate)
-                                    await MainActor.run {
-                                        self.currentBuildingName = googleName
-                                        print("✅ [Hybrid] Name updated by Google: \(googleName)")
-                                    }
-                                } catch {
-                                    print("⚠️ [Hybrid] Google Places Fallback Failed: \(error)")
-                                    await MainActor.run {
-                                        if self.currentBuildingName == nil {
-                                            self.currentBuildingName = overpassName
-                                        } else {
-                                            print("❌ [Hybrid] Google failed & Overpass generic. Keeping Fallback: \(self.currentBuildingName ?? "nil")")
-                                        }
-                                    }
-                                }
-                                await MainActor.run {
-                                    self.isInsideBuilding = true
-                                }
-                            }
-                        } else {
-                            self.currentBuildingName = overpassName
-                            self.isInsideBuilding = true
-                        }
+                        self.handleBuildingMatch(matchedObject, at: location, isStrictMatch: true)
                     }
                 } else {
-                    print("🏢 [Overpass] No building/area matched, keeping fallback data")
-                    // Do not reset currentBuildingName or isInsideBuilding (keep fallback)
+                    print("🏢 [Overpass] Strict match failed, trying proximity fallback (15m)...")
+                    
+                    if let nearestObject = OverpassService.shared.findNearestBuilding(at: location.coordinate, from: buildings, maxDistance: 15.0) {
+                        print("📍 [Proximity] Matched Object: \(nearestObject.name) (\(nearestObject.type))")
+                        await MainActor.run {
+                            self.handleBuildingMatch(nearestObject, at: location, isStrictMatch: false)
+                        }
+                    } else {
+                        print("❌ [Overpass] No building found even with proximity check.")
+                        // Do not reset currentBuildingName or isInsideBuilding (keep fallback)
+                    }
                 }
             } catch {
                 print("Error fetching nearby buildings: \(error)")
             }
         }
     }
+    
+    // Helper to handle building match logic (deduplicated)
+    private func handleBuildingMatch(_ matchedObject: BuildingPolygon, at location: CLLocation, isStrictMatch: Bool) {
+        let overpassName = matchedObject.name
+        
+        if overpassName == "건물" || overpassName.isEmpty {
+            print("🟡 [Hybrid] Overpass name missing, calling Google Places...")
+            
+            Task {
+                do {
+                    let googleName = try await APIService.shared.fetchNearbyPlaceName(at: location.coordinate)
+                    await MainActor.run {
+                        self.currentBuildingName = googleName
+                        print("✅ [Hybrid] Name updated by Google: \(googleName)")
+                    }
+                } catch {
+                    print("⚠️ [Hybrid] Google Places Fallback Failed: \(error)")
+                    await MainActor.run {
+                        if self.currentBuildingName == nil {
+                            self.currentBuildingName = overpassName
+                        }
+                    }
+                }
+                await MainActor.run {
+                    self.isInsideBuilding = isStrictMatch
+                }
+            }
+        } else {
+            self.currentBuildingName = overpassName
+            self.isInsideBuilding = isStrictMatch
+        }
+    }
+
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Location Manager Error: \(error.localizedDescription)")
